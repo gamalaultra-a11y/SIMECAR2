@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Gestión de Personal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    navy: { 950: '#081527', 900: '#0B2245', 800: '#13315C', 700: '#1D4073' },
+                    ink: { 900: '#1B2430', 700: '#3B4657', 500: '#647087', 300: '#AEB6C2' },
+                    line: '#E3E7ED', canvas: '#F4F6F9',
+                    gold: { 500: '#B08A2E', 100: '#F6EFDD' },
+                    ok: { 700: '#0E6B45', 100: '#E4F4EC' },
+                    warn: { 700: '#D97706', 100: '#FEF3C7' },
+                    bad: { 700: '#A32E27', 100: '#FBEAE9' },
+                },
+                fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['IBM Plex Mono', 'monospace'] }
+            }
+        }
+    }
+</script>
+<style>
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #F4F6F9; }
+    ::-webkit-scrollbar-thumb { background: #C7CDD8; border-radius: 6px; }
+    ::-webkit-scrollbar-thumb:hover { background: #A8AFBC; }
+    .th-sort { cursor: pointer; user-select: none; }
+    .th-sort:hover { color: #0B2245; }
+    .th-sort .arrow { opacity: 0.25; font-size: 10px; margin-left: 4px; }
+    .th-sort.active .arrow { opacity: 1; }
+    tbody tr:nth-child(even) { background-color: #FAFBFC; }
+    tbody tr:hover { background-color: #EEF2F8 !important; }
+    .cert-dot { width: 7px; height: 7px; border-radius: 999px; display: inline-block; margin-right: 6px; flex: none; }
+    .field label { display:block; font-size: 11px; font-weight: 600; color: #647087; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+    .field input, .field select, .field textarea { width: 100%; border: 1px solid #E3E7ED; border-radius: 6px; padding: 8px 10px; font-size: 13.5px; color: #1B2430; background: #fff; transition: border-color .15s, box-shadow .15s; }
+    .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: #0B2245; box-shadow: 0 0 0 3px rgba(11,34,69,0.08); }
+    .field input:disabled { background: #F4F6F9; color: #647087; }
+    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 60; background: #0B2245; color: white; padding: 12px 20px; border-radius: 8px; font-size: 13.5px; font-weight: 500; box-shadow: 0 10px 30px rgba(11,34,69,0.25); display: flex; align-items: center; gap: 10px; transform: translateY(20px); opacity: 0; transition: all .25s ease; pointer-events: none; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.err { background: #A32E27; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin .7s linear infinite; }
+</style>
+</head>
+<body class="bg-canvas text-ink-900 font-sans antialiased">
+
+<nav class="bg-navy-900 text-white border-b border-navy-700/40">
+    <div class="max-w-[1400px] mx-auto px-6">
+        <div class="flex justify-between h-16 items-center">
+            <div class="flex items-center gap-3">
+                <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+                    <rect width="30" height="30" rx="6" fill="#B08A2E"/>
+                    <path d="M8 21V9L15 14.5L22 9V21" stroke="#0B2245" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div class="leading-tight">
+                    <div class="font-bold text-[15px] tracking-wide">GESTIÓN DE RECURSOS HUMANOS</div>
+                    <div class="text-[11px] text-white/50 tracking-wide">Plataforma interna de personal</div>
+                </div>
+            </div>
+            <div class="text-[12px] text-white/60 hidden sm:block" id="lastSync">Sincronizando…</div>
+        </div>
+    </div>
+</nav>
+
+<main class="max-w-[1400px] mx-auto px-6 py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-2 gap-4 h-full">
+            <div class="bg-white rounded-lg border border-line p-4 relative overflow-hidden">
+                <div class="absolute left-0 top-0 h-full w-1 bg-navy-900"></div>
+                <div class="text-[11px] font-semibold text-ink-500 uppercase tracking-wide mb-1">Total Trabajadores</div>
+                <div class="text-3xl font-extrabold text-navy-900" id="kpiTotal">—</div>
+            </div>
+            <div class="bg-white rounded-lg border border-line p-4 relative overflow-hidden">
+                <div class="absolute left-0 top-0 h-full w-1 bg-ok-700"></div>
+                <div class="text-[11px] font-semibold text-ink-500 uppercase tracking-wide mb-1">Activos</div>
+                <div class="text-3xl font-extrabold text-navy-900" id="kpiActivos">—</div>
+            </div>
+            <div class="bg-white rounded-lg border border-line p-4 relative overflow-hidden">
+                <div class="absolute left-0 top-0 h-full w-1 bg-warn-700"></div>
+                <div class="text-[11px] font-semibold text-ink-500 uppercase tracking-wide mb-1">Por Vencer (30d)</div>
+                <div class="text-3xl font-extrabold text-warn-700" id="kpiAlerta">—</div>
+            </div>
+            <div class="bg-white rounded-lg border border-line p-4 relative overflow-hidden">
+                <div class="absolute left-0 top-0 h-full w-1 bg-bad-700"></div>
+                <div class="text-[11px] font-semibold text-ink-500 uppercase tracking-wide mb-1">Certs. Vencidos</div>
+                <div class="text-3xl font-extrabold text-bad-700" id="kpiVencidos">—</div>
+            </div>
+        </div>
+
+        <!-- Gráfico Circular -->
+        <div class="bg-white rounded-lg border border-line p-4 flex flex-col justify-center items-center h-48 lg:h-auto">
+            <h4 class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-2 w-full">Distribución por Modalidad</h4>
+            <div class="relative w-full h-full flex justify-center"><canvas id="pieChart"></canvas></div>
+        </div>
+
+        <!-- Gráfico de Barras -->
+        <div class="bg-white rounded-lg border border-line p-4 flex flex-col justify-center h-48 lg:h-auto">
+            <h4 class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-2 w-full">Personal por Team</h4>
+            <div class="relative w-full h-full"><canvas id="barChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Toolbar de Herramientas -->
+    <div class="mb-5 bg-white p-5 rounded-lg border border-line">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+            <div>
+                <h1 class="text-lg font-bold text-navy-900">Base de Datos General</h1>
+                <p class="text-[12.5px] text-ink-500">Búsqueda, edición y control de vencimientos</p>
+            </div>
+            
+            <div class="flex flex-wrap gap-2">
+                <button onclick="loadDataFromAPI()" class="border border-line px-3.5 py-2 rounded-lg text-ink-700 hover:bg-canvas transition" title="Refrescar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>
+                </button>
+                <button onclick="exportToExcel()" class="bg-white border border-line text-ink-700 px-4 py-2 rounded-lg hover:bg-canvas font-medium text-[13px] whitespace-nowrap">
+                    ↓ Descargar
+                </button>
+                <label class="cursor-pointer bg-white border border-line text-ink-700 px-4 py-2 rounded-lg hover:bg-canvas font-medium text-[13px] whitespace-nowrap">
+                    ↑ Importar Masivo
+                    <input type="file" id="importFile" class="hidden" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
+                </label>
+                <button onclick="openModalNew()" class="bg-navy-900 text-white px-4 py-2 rounded-lg hover:bg-navy-800 font-semibold text-[13px] whitespace-nowrap shadow-md">
+                    + Nuevo Trabajador
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <div class="relative w-full">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Buscar por nombre, ID o team..."
+                    class="w-full pl-9 pr-4 py-2.5 border border-line rounded-lg text-[13.5px] focus:outline-none focus:ring-2 focus:ring-navy-900/10 focus:border-navy-900 transition">
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <select id="filterEstado" onchange="filterTable()" class="w-full border border-line rounded-lg px-3 py-2 text-[13px] text-ink-900 focus:outline-none focus:border-navy-900 bg-white"><option value="">Todos los estados</option></select>
+                <select id="filterTeam" onchange="filterTable()" class="w-full border border-line rounded-lg px-3 py-2 text-[13px] text-ink-900 focus:outline-none focus:border-navy-900 bg-white"><option value="">Todos los teams</option></select>
+                <select id="filterRol" onchange="filterTable()" class="w-full border border-line rounded-lg px-3 py-2 text-[13px] text-ink-900 focus:outline-none focus:border-navy-900 bg-white"><option value="">Todos los roles</option></select>
+                <select id="filterModalidad" onchange="filterTable()" class="w-full border border-line rounded-lg px-3 py-2 text-[13px] text-ink-900 focus:outline-none focus:border-navy-900 bg-white"><option value="">Todas las modalidades</option></select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="bg-white rounded-lg border border-line overflow-hidden shadow-sm">
+        <div class="overflow-x-auto max-h-[620px] overflow-y-auto relative">
+            <table class="min-w-full" id="dataTable">
+                <thead class="bg-navy-900 text-white sticky top-0 z-10">
+                    <tr>
+                        <th class="th-sort px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide" onclick="sortBy('ID')">ID <span class="arrow">▲▼</span></th>
+                        <th class="th-sort px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide" onclick="sortBy('NOMBRE')">Apellidos y nombres <span class="arrow">▲▼</span></th>
+                        <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide">Estado</th>
+                        <th class="th-sort px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide" onclick="sortBy('TEAM')">Team <span class="arrow">▲▼</span></th>
+                        <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide">Rol</th>
+                        <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide">Modalidad</th>
+                        <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide">Semáforo Certificados</th>
+                        <th class="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wide">Acción</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-line" id="tableBody"></tbody>
+            </table>
+        </div>
+        <div class="border-t border-line px-4 py-2.5 text-[12px] text-ink-500 bg-canvas flex justify-between items-center">
+            <span id="rowCount">—</span>
+            <span>Fuente: Google Sheets</span>
+        </div>
+    </div>
+</main>
+
+<!-- Modal de Edición/Creación -->
+<div id="editModal" class="fixed inset-0 bg-navy-950/60 backdrop-blur-[2px] hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl border border-line max-h-[95vh] flex flex-col relative">
+        
+        <div class="px-6 py-4 border-b border-line bg-canvas flex justify-between items-center rounded-t-xl">
+            <div>
+                <h3 class="text-[15px] font-bold text-navy-900" id="modalTitle">Ficha del trabajador</h3>
+                <p class="text-[12px] text-ink-500" id="modalSubtitle">Cargando...</p>
+            </div>
+            <button onclick="closeModal()" class="text-ink-300 hover:text-ink-700 transition">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <div class="px-6 py-5 overflow-y-auto flex-grow" style="max-height: calc(95vh - 140px);">
+            <input type="hidden" id="editRowIndex">
+
+            <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-3 pb-2 border-b border-line">Datos generales</h4>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-7">
+                <div class="col-span-2 field"><label>Apellidos y nombres</label><input type="text" id="editName"></div>
+                <div class="field"><label>ID / DNI</label><input type="text" id="editID"></div>
+                <div class="field"><label>Estado</label><select id="editStatus"><option>ACTIVO</option><option>CESADO</option></select></div>
+                <div class="col-span-2 field"><label>Dirección</label><input type="text" id="editAddress"></div>
+                <div class="field"><label>Departamento</label><input type="text" id="editDept"></div>
+                <div class="field"><label>Distrito</label><input type="text" id="editDist"></div>
+                <div class="field"><label>Celular</label><input type="text" id="editPhone"></div>
+                <div class="col-span-2 field"><label>Correo corporativo</label><input type="email" id="editEmail"></div>
+                <div class="field"><label>Cuenta ISDP</label><input type="text" id="editISDP"></div>
+            </div>
+
+            <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-3 pb-2 border-b border-line">Datos laborales</h4>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-7">
+                <div class="field"><label>N.° de team</label><input type="text" id="editTeam"></div>
+                <div class="field"><label>Rol</label><input type="text" id="editRole"></div>
+                <div class="field"><label>Sueldo</label><input type="text" id="editSalary"></div>
+                <div class="field"><label>Modalidad</label><input type="text" id="editModality"></div>
+            </div>
+
+            <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-3 pb-2 border-b border-line flex items-center justify-between">
+                Control de certificados
+                <span class="text-[10px] bg-warn-100 text-warn-700 px-2 py-0.5 rounded font-medium normal-case">El estado (Vigente/Vencido) se calcula solo por la fecha</span>
+            </h4>
+            <div class="bg-canvas p-4 rounded-lg border border-line mb-7">
+                <div class="grid grid-cols-4 gap-4">
+                    <div class="text-center text-[11px] font-bold text-navy-900 uppercase tracking-wide pb-1">Cert. R.E</div>
+                    <div class="text-center text-[11px] font-bold text-navy-900 uppercase tracking-wide pb-1">Cert. P.A</div>
+                    <div class="text-center text-[11px] font-bold text-navy-900 uppercase tracking-wide pb-1">Cert. T.A</div>
+                    <div class="text-center text-[11px] font-bold text-navy-900 uppercase tracking-wide pb-1">CAMO</div>
+
+                    <div class="space-y-2 border-r border-line pr-3 field">
+                        <input type="text" id="certRE_Eje" placeholder="DD/MM/YYYY">
+                        <input type="text" id="certRE_Ven" placeholder="DD/MM/YYYY">
+                        <input type="text" id="certRE_Est" disabled class="font-bold text-center !bg-white">
+                    </div>
+                    <div class="space-y-2 border-r border-line pr-3 field">
+                        <input type="text" id="certPA_Eje" placeholder="DD/MM/YYYY">
+                        <input type="text" id="certPA_Ven" placeholder="DD/MM/YYYY">
+                        <input type="text" id="certPA_Est" disabled class="font-bold text-center !bg-white">
+                    </div>
+                    <div class="space-y-2 border-r border-line pr-3 field">
+                        <input type="text" id="certTA_Eje" placeholder="DD/MM/YYYY">
+                        <input type="text" id="certTA_Ven" placeholder="DD/MM/YYYY">
+                        <input type="text" id="certTA_Est" disabled class="font-bold text-center !bg-white">
+                    </div>
+                    <div class="space-y-2 field">
+                        <input type="text" id="certCAMO_Eje" placeholder="DD/MM/YYYY">
+                        <input type="text" id="certCAMO_Ven" placeholder="DD/MM/YYYY">
+                        <input type="text" id="certCAMO_Est" disabled class="font-bold text-center !bg-white">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-3 pb-2 border-b border-line">Fechas de contrato</h4>
+                    <div class="flex gap-3">
+                        <div class="w-1/2 field"><label>Inicio</label><input type="text" id="editContratoInicio" placeholder="DD/MM/YYYY"></div>
+                        <div class="w-1/2 field"><label>Fin</label><input type="text" id="editContratoFin" placeholder="DD/MM/YYYY"></div>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-3 pb-2 border-b border-line">Observaciones</h4>
+                    <div class="field"><textarea id="editObs" rows="2"></textarea></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-line flex justify-between bg-canvas rounded-b-xl">
+            <!-- BOTÓN DE ELIMINAR -->
+            <button id="btnDelete" onclick="deleteWorker()" class="border border-bad-700 text-bad-700 px-4 py-2 rounded-lg hover:bg-bad-100 font-medium text-[13.5px] transition hidden">
+                Eliminar Registro
+            </button>
+            <div class="flex gap-3 ml-auto">
+                <button onclick="closeModal()" class="bg-white border border-line text-ink-700 px-4 py-2 rounded-lg hover:bg-white/60 font-medium text-[13.5px]">Cerrar</button>
+                <button id="btnSave" onclick="saveChanges()" class="bg-navy-900 text-white px-6 py-2 rounded-lg hover:bg-navy-800 font-semibold text-[13.5px] transition flex items-center gap-2 shadow-md">
+                    <span id="btnSaveText">Guardar cambios</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbx82m-uXrUedsEDpJJMb9tEHheKzYh4uwNGcYC_o_L3wWcAPc7OKgxJomteYQiq6dWp/exec';
+    
+    let globalData = [];
+    let currentSort = { key: null, dir: 1 };
+    let isCreatingNew = false;
+    
+    let chartModalidad = null;
+    let chartTeam = null;
+
+    const COL = {
+        TEAM: 0, ESTADO: 1, NOMBRE: 2, ID: 3, DIR: 4, DEPTO: 5, PROV: 6, DIST: 7, NAC: 8, CORREO: 9, ISDP: 10, CEL: 11, ROL: 12,
+        CERT_RE_EJE: 13, CERT_RE_VEN: 14, CERT_RE_EST: 15,
+        CERT_PA_EJE: 16, CERT_PA_VEN: 17, CERT_PA_EST: 18,
+        CERT_TA_EJE: 19, CERT_TA_VEN: 20, CERT_TA_EST: 21,
+        CAMO_EJE: 22, CAMO_VEN: 23, CAMO_EST: 24,
+        CONT_INI: 25, CONT_FIN: 26, SUELDO: 27, MODALIDAD: 28, OBS: 29
+    };
+    const CERT_VEN_KEYS = [COL.CERT_RE_VEN, COL.CERT_PA_VEN, COL.CERT_TA_VEN, COL.CAMO_VEN];
+
+    window.onload = loadDataFromAPI;
+
+    function showToast(msg, isError = false) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast show' + (isError ? ' err' : '');
+        setTimeout(() => { t.className = 'toast' + (isError ? ' err' : ''); }, 3000);
+    }
+
+    function parseDateFlexible(dateStr) {
+        if (!dateStr) return null;
+        let str = String(dateStr).trim();
+        if (str.includes("T")) {
+            let parts = str.split("T")[0].split("-");
+            return new Date(parts[0], parts[1]-1, parts[2]);
+        }
+        if (str.includes("/")) {
+            let parts = str.split("/");
+            if(parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]);
+        }
+        return null;
+    }
+
+    function checkStatusByDate(venDateStr) {
+        const d = parseDateFlexible(venDateStr);
+        if(!d) return { status: 'none', color: '#AEB6C2', text: 'Sin Fecha' };
+        
+        const diffDays = (d - new Date()) / (1000 * 60 * 60 * 24);
+        
+        if (diffDays < 0) return { status: 'VENCIDO', color: '#A32E27', text: 'VENCIDO' };
+        if (diffDays <= 30) return { status: 'ALERTA', color: '#D97706', text: 'POR VENCER' };
+        return { status: 'VIGENTE', color: '#0E6B45', text: 'VIGENTE' };
+    }
+
+    function formatDateStr(dateString) {
+        if (!dateString) return "";
+        let str = String(dateString).trim();
+        if (str.includes("T")) {
+            let parts = str.split("T")[0].split("-");
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return str;
+    }
+
+    async function loadDataFromAPI() {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-16 text-center text-ink-500">
+            <svg class="spinner mx-auto mb-3" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0B2245" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/></svg>
+            <div class="font-medium text-[13.5px]">Descargando y calculando vencimientos…</div>
+        </td></tr>`;
+        
+        try {
+            const response = await fetch(API_URL);
+            globalData = await response.json();
+            
+            populateFilterDropdowns();
+            renderTable(globalData);
+            updateDashboardAnalytics(globalData);
+            
+            const now = new Date();
+            document.getElementById('lastSync').textContent = 'Sincronizado: ' + now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+        } catch (error) {
+            console.error("Detalle del error:", error);
+            tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-10 text-center text-bad-700 text-[13.5px] font-medium">Hubo un pequeño error interno al procesar los datos. Presiona F12 y revisa la consola para ver qué falló.</td></tr>`;
+        }
+    }
+
+    function updateDashboardAnalytics(dataArray) {
+        const valid = dataArray.filter(i => i['col_' + COL.NOMBRE] && String(i['col_' + COL.NOMBRE]).trim() !== '');
+        
+        let activos = 0, cesados = 0, vencidos = 0, alertas = 0;
+        let objMods = {}, objTeams = {};
+
+        valid.forEach(row => {
+            const est = String(row['col_' + COL.ESTADO] || '').toUpperCase();
+            if (est.includes('ACTIVO')) activos++;
+            if (est.includes('CESADO')) cesados++;
+
+            const mod = String(row['col_' + COL.MODALIDAD] || 'ND').trim();
+            if(mod) objMods[mod] = (objMods[mod] || 0) + 1;
+
+            const team = String(row['col_' + COL.TEAM] || 'Sin Team').trim();
+            if(team) objTeams[team] = (objTeams[team] || 0) + 1;
+
+            CERT_VEN_KEYS.forEach(k => {
+                const s = checkStatusByDate(row['col_' + k]).status;
+                if(s === 'VENCIDO') vencidos++;
+                if(s === 'ALERTA') alertas++;
+            });
+        });
+
+        document.getElementById('kpiTotal').textContent = valid.length;
+        document.getElementById('kpiActivos').textContent = activos;
+        document.getElementById('kpiAlerta').textContent = alertas;
+        document.getElementById('kpiVencidos').textContent = vencidos;
+
+        renderCharts(objMods, objTeams);
+    }
+
+    function renderCharts(objMods, objTeams) {
+        if(chartModalidad) chartModalidad.destroy();
+        if(chartTeam) chartTeam.destroy();
+
+        const ctxPie = document.getElementById('pieChart').getContext('2d');
+        chartModalidad = new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(objMods),
+                datasets: [{ data: Object.values(objMods), backgroundColor: ['#0B2245', '#B08A2E', '#647087', '#1D4073'] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels:{boxWidth:10, font:{size:11}} } } }
+        });
+
+        const sortedTeams = Object.entries(objTeams).sort((a,b)=>b[1]-a[1]).slice(0, 7);
+        const ctxBar = document.getElementById('barChart').getContext('2d');
+        chartTeam = new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: sortedTeams.map(t=>t[0]),
+                datasets: [{ label: 'Personal', data: sortedTeams.map(t=>t[1]), backgroundColor: '#13315C', borderRadius: 4 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales:{ y:{beginAtZero:true, ticks:{stepSize:1}} } }
+        });
+    }
+
+    function populateFilterDropdowns() {
+        const estados = new Set(), teams = new Set(), roles = new Set(), modalidades = new Set();
+        globalData.forEach(row => {
+            if (row['col_' + COL.NOMBRE]) {
+                if (row['col_' + COL.ESTADO]) estados.add(String(row['col_' + COL.ESTADO]).trim());
+                if (row['col_' + COL.TEAM]) teams.add(String(row['col_' + COL.TEAM]).trim());
+                if (row['col_' + COL.ROL]) roles.add(String(row['col_' + COL.ROL]).trim());
+                if (row['col_' + COL.MODALIDAD]) modalidades.add(String(row['col_' + COL.MODALIDAD]).trim());
+            }
+        });
+        const fillSelect = (id, set) => {
+            const select = document.getElementById(id);
+            select.innerHTML = select.options[0].outerHTML;
+            Array.from(set).sort().forEach(val => select.innerHTML += `<option value="${val}">${val}</option>`);
+        };
+        fillSelect('filterEstado', estados); fillSelect('filterTeam', teams); fillSelect('filterRol', roles); fillSelect('filterModalidad', modalidades);
+    }
+
+    function generateSemaforoDots(row) {
+        let html = '';
+        let validCerts = 0;
+        CERT_VEN_KEYS.forEach(k => {
+            const res = checkStatusByDate(row['col_' + k]);
+            if (res.status !== 'none') {
+                validCerts++;
+                html += `<span class="cert-dot" style="background:${res.color}" title="${res.text}"></span>`;
+            }
+        });
+        if(validCerts === 0) return '<span class="text-[10px] text-ink-300">Sin fechas</span>';
+        return `<div class="flex items-center space-x-1">${html}</div>`;
+    }
+
+    function renderTable(dataArray) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        const validData = dataArray.filter(i => i['col_' + COL.NOMBRE] && String(i['col_' + COL.NOMBRE]).trim() !== '');
+
+        document.getElementById('rowCount').textContent = validData.length + ' regs.';
+
+        if (validData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-14 text-center text-[13.5px] text-ink-500">No hay datos.</td></tr>';
+            return;
+        }
+
+        validData.forEach((item) => {
+            const tr = document.createElement('tr');
+            const estado = String(item['col_' + COL.ESTADO] || '').toUpperCase();
+            const estadoClass = estado.includes('ACTIVO') ? 'bg-ok-100 text-ok-700' : (estado ? 'bg-bad-100 text-bad-700' : 'bg-canvas text-ink-500');
+
+            tr.innerHTML = `
+                <td class="px-4 py-3 text-[12.5px] font-mono text-ink-700">${item['col_' + COL.ID] || '—'}</td>
+                <td class="px-4 py-3 text-[13px] font-bold text-navy-900">${item['col_' + COL.NOMBRE] || '—'}</td>
+                <td class="px-4 py-3"><span class="px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wide ${estadoClass}">${estado || '—'}</span></td>
+                <td class="px-4 py-3 text-[12px] font-semibold text-ink-900">${item['col_' + COL.TEAM] || '—'}</td>
+                <td class="px-4 py-3 text-[12px] text-ink-700">${item['col_' + COL.ROL] || '—'}</td>
+                <td class="px-4 py-3 text-[12px] text-ink-700">${item['col_' + COL.MODALIDAD] || '—'}</td>
+                <td class="px-4 py-3">${generateSemaforoDots(item)}</td>
+                <td class="px-4 py-3 text-center">
+                    <button onclick="openModalEdit(${item.row_index})" class="bg-navy-900 text-white px-3 py-1.5 rounded text-[11px] font-medium hover:bg-navy-800 transition shadow-sm">Editar</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function filterTable() {
+        const input = document.getElementById('searchInput').value.toLowerCase();
+        const fEst = document.getElementById('filterEstado').value, fTeam = document.getElementById('filterTeam').value, fRol = document.getElementById('filterRol').value, fMod = document.getElementById('filterModalidad').value;
+
+        const filtered = globalData.filter(row => {
+            const name = String(row['col_' + COL.NOMBRE] || '').toLowerCase(), id = String(row['col_' + COL.ID] || '').toLowerCase();
+            const mText = name.includes(input) || id.includes(input);
+            const mEst = fEst === "" || String(row['col_' + COL.ESTADO]).trim() === fEst;
+            const mTeam = fTeam === "" || String(row['col_' + COL.TEAM]).trim() === fTeam;
+            const mRol = fRol === "" || String(row['col_' + COL.ROL]).trim() === fRol;
+            const mMod = fMod === "" || String(row['col_' + COL.MODALIDAD]).trim() === fMod;
+            return mText && mEst && mTeam && mRol && mMod;
+        });
+        renderTable(filtered);
+    }
+
+    function sortBy(field) {
+        const key = COL[field];
+        currentSort.dir = (currentSort.key === key) ? -currentSort.dir : 1; currentSort.key = key;
+        const sorted = [...globalData].sort((a, b) => {
+            return String(a['col_'+key]||'').toLowerCase().localeCompare(String(b['col_'+key]||'').toLowerCase(), 'es', {numeric:true}) * currentSort.dir;
+        });
+        globalData = sorted; filterTable();
+    }
+
+    function openModalNew() {
+        isCreatingNew = true;
+        document.getElementById('modalTitle').textContent = "Ingresar Nuevo Trabajador";
+        document.getElementById('modalSubtitle').textContent = "Completa los datos para registrar un ingreso";
+        document.getElementById('btnDelete').classList.add('hidden');
+        document.getElementById('editName').disabled = false;
+        
+        document.querySelectorAll('#editModal input, #editModal select, #editModal textarea').forEach(el => el.value = '');
+        document.getElementById('editStatus').value = 'ACTIVO';
+        
+        ["RE", "PA", "TA", "CAMO"].forEach(t => {
+            let el = document.getElementById(`cert${t}_Est`);
+            el.value = '-'; el.style.color = '#AEB6C2';
+        });
+
+        document.getElementById('editModal').classList.replace('hidden', 'flex');
+    }
+
+    function openModalEdit(rowIndex) {
+        isCreatingNew = false;
+        const row = globalData.find(r => r.row_index === rowIndex);
+        if (!row) return;
+
+        document.getElementById('modalTitle').textContent = "Ficha del Trabajador";
+        document.getElementById('modalSubtitle').textContent = "Editando registro #" + rowIndex;
+        document.getElementById('btnDelete').classList.remove('hidden');
+        document.getElementById('editName').disabled = true; 
+        
+        document.getElementById('editRowIndex').value = rowIndex;
+        document.getElementById('editName').value = row['col_' + COL.NOMBRE] || '';
+        document.getElementById('editID').value = row['col_' + COL.ID] || '';
+        document.getElementById('editStatus').value = row['col_' + COL.ESTADO] || 'ACTIVO';
+        document.getElementById('editAddress').value = row['col_' + COL.DIR] || '';
+        document.getElementById('editDept').value = row['col_' + COL.DEPTO] || '';
+        document.getElementById('editDist').value = row['col_' + COL.DIST] || '';
+        document.getElementById('editPhone').value = row['col_' + COL.CEL] || '';
+        document.getElementById('editEmail').value = row['col_' + COL.CORREO] || '';
+        document.getElementById('editISDP').value = row['col_' + COL.ISDP] || '';
+        document.getElementById('editTeam').value = row['col_' + COL.TEAM] || '';
+        document.getElementById('editRole').value = row['col_' + COL.ROL] || '';
+        document.getElementById('editSalary').value = row['col_' + COL.SUELDO] || '';
+        document.getElementById('editModality').value = row['col_' + COL.MODALIDAD] || '';
+
+        const loadCert = (prefix, colEje, colVen) => {
+            document.getElementById(prefix+'_Eje').value = formatDateStr(row['col_' + colEje]);
+            document.getElementById(prefix+'_Ven').value = formatDateStr(row['col_' + colVen]);
+            
+            const estInput = document.getElementById(prefix+'_Est');
+            const statusObj = checkStatusByDate(row['col_' + colVen]);
+            estInput.value = statusObj.text;
+            estInput.style.color = statusObj.color;
+        };
+
+        loadCert('certRE', COL.CERT_RE_EJE, COL.CERT_RE_VEN);
+        loadCert('certPA', COL.CERT_PA_EJE, COL.CERT_PA_VEN);
+        loadCert('certTA', COL.CERT_TA_EJE, COL.CERT_TA_VEN);
+        loadCert('certCAMO', COL.CAMO_EJE, COL.CAMO_VEN);
+
+        document.getElementById('editContratoInicio').value = formatDateStr(row['col_' + COL.CONT_INI]);
+        document.getElementById('editContratoFin').value = formatDateStr(row['col_' + COL.CONT_FIN]);
+        document.getElementById('editObs').value = row['col_' + COL.OBS] || '';
+
+        document.getElementById('editModal').classList.replace('hidden', 'flex');
+    }
+
+    function closeModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
+
+    async function executeBackend(action, payload) {
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST', body: JSON.stringify(payload),
+                headers: { "Content-Type": "text/plain;charset=utf-8" }
+            });
+            return true;
+        } catch(e) { return false; }
+    }
+
+    async function saveChanges() {
+        const btn = document.getElementById('btnSave');
+        btn.disabled = true; btn.classList.add('opacity-50'); document.getElementById('btnSaveText').textContent = 'Subiendo...';
+
+        const fields = {
+            ["col_" + COL.NOMBRE]: document.getElementById('editName').value.toUpperCase(),
+            ["col_" + COL.ID]: document.getElementById('editID').value,
+            ["col_" + COL.ESTADO]: document.getElementById('editStatus').value,
+            ["col_" + COL.DIR]: document.getElementById('editAddress').value,
+            ["col_" + COL.DEPTO]: document.getElementById('editDept').value,
+            ["col_" + COL.DIST]: document.getElementById('editDist').value,
+            ["col_" + COL.CEL]: document.getElementById('editPhone').value,
+            ["col_" + COL.CORREO]: document.getElementById('editEmail').value,
+            ["col_" + COL.ISDP]: document.getElementById('editISDP').value,
+            ["col_" + COL.TEAM]: document.getElementById('editTeam').value,
+            ["col_" + COL.ROL]: document.getElementById('editRole').value,
+            ["col_" + COL.SUELDO]: document.getElementById('editSalary').value,
+            ["col_" + COL.MODALIDAD]: document.getElementById('editModality').value,
+            ["col_" + COL.CERT_RE_EJE]: document.getElementById('certRE_Eje').value,
+            ["col_" + COL.CERT_RE_VEN]: document.getElementById('certRE_Ven').value,
+            ["col_" + COL.CERT_RE_EST]: checkStatusByDate(document.getElementById('certRE_Ven').value).status,
+            ["col_" + COL.CERT_PA_EJE]: document.getElementById('certPA_Eje').value,
+            ["col_" + COL.CERT_PA_VEN]: document.getElementById('certPA_Ven').value,
+            ["col_" + COL.CERT_PA_EST]: checkStatusByDate(document.getElementById('certPA_Ven').value).status,
+            ["col_" + COL.CERT_TA_EJE]: document.getElementById('certTA_Eje').value,
+            ["col_" + COL.CERT_TA_VEN]: document.getElementById('certTA_Ven').value,
+            ["col_" + COL.CERT_TA_EST]: checkStatusByDate(document.getElementById('certTA_Ven').value).status,
+            ["col_" + COL.CAMO_EJE]: document.getElementById('certCAMO_Eje').value,
+            ["col_" + COL.CAMO_VEN]: document.getElementById('certCAMO_Ven').value,
+            ["col_" + COL.CAMO_EST]: checkStatusByDate(document.getElementById('certCAMO_Ven').value).status,
+            ["col_" + COL.CONT_INI]: document.getElementById('editContratoInicio').value,
+            ["col_" + COL.CONT_FIN]: document.getElementById('editContratoFin').value,
+            ["col_" + COL.OBS]: document.getElementById('editObs').value
+        };
+
+        const rowIndex = document.getElementById('editRowIndex').value;
+        const payload = isCreatingNew ? { action: 'add', data: fields } : { action: 'update', rowIndex: parseInt(rowIndex), updatedFields: fields };
+
+        if(await executeBackend(payload.action, payload)) {
+            showToast(isCreatingNew ? 'Trabajador agregado con éxito.' : 'Cambios guardados.');
+            closeModal(); loadDataFromAPI();
+        } else {
+            showToast('Error de conexión al guardar.', true);
+        }
+        
+        document.getElementById('btnSaveText').textContent = 'Guardar cambios'; btn.disabled = false; btn.classList.remove('opacity-50');
+    }
+
+    async function deleteWorker() {
+        if(!confirm("¿Estás SEGURO de que deseas eliminar permanentemente a este trabajador de la base de datos?")) return;
+        
+        document.getElementById('btnDelete').textContent = 'Eliminando...';
+        const rowIndex = parseInt(document.getElementById('editRowIndex').value);
+        
+        if(await executeBackend('delete', { rowIndex: rowIndex })) {
+            showToast('Registro eliminado correctamente.');
+            closeModal(); loadDataFromAPI();
+        } else {
+            showToast('No se pudo eliminar.', true);
+        }
+        document.getElementById('btnDelete').textContent = 'Eliminar Registro';
+    }
+
+    document.getElementById('importFile').addEventListener('change', (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        
+        if(!confirm("⚠️ ADVERTENCIA: Esta acción REEMPLAZARÁ toda tu base de datos actual en Google Sheets con los datos de este Excel. ¿Deseas continuar?")) {
+            e.target.value = ''; return;
+        }
+
+        showToast("Leyendo archivo Excel...");
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const raw = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1, defval: ""});
+            
+            let rowsToUpload = [];
+            for (let i = 2; i < raw.length; i++) {
+                if (raw[i] && raw[i][COL.NOMBRE] && String(raw[i][COL.NOMBRE]).trim() !== "") {
+                    let obj = {};
+                    for(let c=0; c<30; c++) obj["col_"+c] = raw[i][c] || "";
+                    rowsToUpload.push(obj);
+                }
+            }
+            
+            showToast(`Subiendo ${rowsToUpload.length} registros a la nube... No cierres esta ventana.`);
+            if(await executeBackend('bulk', { data: rowsToUpload })) {
+                showToast("Base de datos actualizada masivamente con éxito.");
+                loadDataFromAPI();
+            } else {
+                showToast("Hubo un error en la subida masiva.", true);
+            }
+            e.target.value = ''; 
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    function exportToExcel() {
+        const validDataForExport = globalData.filter(item => item['col_' + COL.NOMBRE] && String(item['col_' + COL.NOMBRE]).trim() !== '');
+        const exportFormat = validDataForExport.map(row => {
+            let obj = {};
+            for (let key in COL) { obj[key] = row['col_' + COL[key]]; }
+            return obj;
+        });
+        const ws = XLSX.utils.json_to_sheet(exportFormat);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Backup_Sistema");
+        XLSX.writeFile(wb, "BaseDatos_RRHH_" + (new Date().toISOString().split('T')[0]) + ".xlsx");
+        showToast('Backup descargado localmente.');
+    }
+</script>
+</body>
+</html>
