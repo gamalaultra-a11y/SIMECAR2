@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Asistencia Diario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Chart.js para Gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    navy: { 950: '#081527', 900: '#0B2245', 800: '#13315C', 700: '#1D4073' },
+                    ink: { 900: '#1B2430', 700: '#3B4657', 500: '#647087', 300: '#AEB6C2' },
+                    line: '#E3E7ED', canvas: '#F4F6F9',
+                    ok: { 700: '#0E6B45', 100: '#E4F4EC' },
+                    bad: { 700: '#A32E27', 100: '#FBEAE9' },
+                },
+                fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['IBM Plex Mono', 'monospace'] }
+            }
+        }
+    }
+</script>
+
+<style>
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #F4F6F9; }
+    ::-webkit-scrollbar-thumb { background: #C7CDD8; border-radius: 4px; }
+    .tab-active { border-bottom: 3px solid #0B2245; color: #0B2245; font-weight: 700; }
+    .tab-inactive { color: #647087; font-weight: 500; }
+    .tab-inactive:hover { color: #1B2430; }
+</style>
+</head>
+<body class="bg-canvas text-ink-900 font-sans antialiased min-h-screen flex flex-col">
+
+<!-- Navbar -->
+<nav class="bg-navy-900 text-white border-b border-navy-700/40 shrink-0">
+    <div class="max-w-[1400px] mx-auto px-6 flex justify-between h-16 items-center">
+        <div class="flex items-center gap-4">
+            <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+                <rect width="30" height="30" rx="6" fill="#B08A2E"/>
+                <path d="M15 8v14M8 15h14" stroke="#0B2245" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div class="leading-tight">
+                <div class="font-bold text-[15px] tracking-wide">CONTROL DE ASISTENCIA</div>
+                <div class="text-[11px] text-white/50 tracking-wide">Análisis diario de marcaciones</div>
+            </div>
+        </div>
+        <div class="flex gap-4">
+            <!-- Botón para volver al Dashboard Principal -->
+            <a href="index.html" class="text-[12px] font-semibold text-white/80 hover:text-white transition flex items-center gap-1">
+                ← Volver a Data Maestra
+            </a>
+        </div>
+    </div>
+</nav>
+
+<main class="max-w-[1400px] mx-auto px-6 py-8 flex-grow w-full">
+
+    <!-- Controles Superiores -->
+    <div class="mb-6 flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-4 rounded-xl border border-line shadow-sm">
+        <div class="flex gap-6 border-b border-line w-full md:w-auto">
+            <button id="tab-operativos" onclick="setGrupo('OPERATIVOS')" class="pb-3 px-2 tab-active text-[14px] transition">Técnicos & Team Leaders</button>
+            <button id="tab-admin" onclick="setGrupo('ADMIN')" class="pb-3 px-2 tab-inactive text-[14px] transition">Administrativos</button>
+        </div>
+        
+        <div class="flex gap-3 w-full md:w-auto">
+            <button onclick="loadDataFromAPI()" class="border border-line px-3 py-2 rounded-lg text-ink-700 hover:bg-canvas transition" title="Actualizar datos">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>
+            </button>
+            <select id="selectDia" onchange="renderDashboard()" class="border border-line rounded-lg px-4 py-2 text-[13px] focus:outline-none focus:border-navy-900 bg-white font-medium shadow-sm">
+                <option value="">Cargando días...</option>
+            </select>
+            <select id="selectTipo" onchange="renderDashboard()" class="border border-line rounded-lg px-4 py-2 text-[13px] focus:outline-none focus:border-navy-900 bg-white font-medium shadow-sm">
+                <option value="QR">Marcación QR</option>
+                <option value="CLOCK IN">CLOCK IN</option>
+                <option value="ODOO">ODOO</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Panel de Analítica Superior -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        
+        <!-- KPIs -->
+        <div class="grid grid-cols-2 gap-4 h-full">
+            <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
+                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Total Marcaciones</div>
+                <div class="text-4xl font-extrabold text-navy-900" id="kpiTotal">0</div>
+            </div>
+            <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
+                <div class="absolute left-0 top-0 h-full w-1.5 bg-ok-700"></div>
+                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">A Tiempo (≤ 8:10)</div>
+                <div class="text-4xl font-extrabold text-ok-700" id="kpiOk">0</div>
+            </div>
+            <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
+                <div class="absolute left-0 top-0 h-full w-1.5 bg-bad-700"></div>
+                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Tarde (> 8:10)</div>
+                <div class="text-4xl font-extrabold text-bad-700" id="kpiLate">0</div>
+            </div>
+            <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
+                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Tasa de Puntualidad</div>
+                <div class="text-4xl font-extrabold text-navy-900" id="kpiTasa">0%</div>
+            </div>
+        </div>
+
+        <!-- Gráfico Doughnut -->
+        <div class="bg-white rounded-xl border border-line p-5 flex flex-col items-center justify-center shadow-sm h-64 lg:h-auto">
+            <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-2 w-full text-center">Porcentaje de Asistencia</h4>
+            <div class="relative w-full h-full flex justify-center max-h-[180px]">
+                <canvas id="chartAsistencia"></canvas>
+            </div>
+        </div>
+
+        <!-- NUEVO: Gráfico de Barras (Reemplaza la caja oscura) -->
+        <div class="bg-white rounded-xl border border-line p-5 flex flex-col items-center justify-center shadow-sm h-64 lg:h-auto">
+            <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-2 w-full text-center">Comparativa (A Tiempo vs Tarde)</h4>
+            <div class="relative w-full h-full flex justify-center max-h-[180px]">
+                <canvas id="chartBarrasAsistencia"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Listas Detalladas (A Tiempo vs Tarde) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Lista: A Tiempo -->
+        <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
+            <div class="bg-ok-100 border-b border-ok-700/20 px-5 py-3 flex justify-between items-center shrink-0">
+                <h3 class="font-bold text-ok-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-ok-700"></div> A Tiempo (≤ 8:10)
+                </h3>
+                <span class="text-[12px] font-bold text-ok-700 bg-white px-2 py-1 rounded" id="countOk">0</span>
+            </div>
+            <div class="overflow-y-auto flex-grow p-0">
+                <table class="w-full text-left">
+                    <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold shadow-sm">
+                        <tr>
+                            <th class="px-5 py-3">Trabajador</th>
+                            <th class="px-5 py-3">Rol</th>
+                            <th class="px-5 py-3 text-right">Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listOk" class="divide-y divide-line text-[13px] font-medium text-navy-900">
+                        <!-- Llenado por JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Lista: Tarde -->
+        <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
+            <div class="bg-bad-100 border-b border-bad-700/20 px-5 py-3 flex justify-between items-center shrink-0">
+                <h3 class="font-bold text-bad-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-bad-700"></div> Tarde (> 8:10)
+                </h3>
+                <span class="text-[12px] font-bold text-bad-700 bg-white px-2 py-1 rounded" id="countLate">0</span>
+            </div>
+            <div class="overflow-y-auto flex-grow p-0">
+                <table class="w-full text-left">
+                    <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold shadow-sm">
+                        <tr>
+                            <th class="px-5 py-3">Trabajador</th>
+                            <th class="px-5 py-3">Rol</th>
+                            <th class="px-5 py-3 text-right">Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listLate" class="divide-y divide-line text-[13px] font-medium text-navy-900">
+                        <!-- Llenado por JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<script>
+    // URL DEFINITIVA DE TU API CONFIGURADA PARA LA PESTAÑA ASISTENCIA
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyDlnaektiXHhO3iEQbDAiNIFwdokEiGNoDIu_CJgFOi2XDxhWCIYj-fXgLMiakQhx_/exec?modo=asistencia'; 
+    
+    let dataAsistencia = [];
+    let currentGrupo = 'OPERATIVOS'; // 'OPERATIVOS' o 'ADMIN'
+    
+    // Variables para los gráficos
+    let myChart = null;
+    let myBarChart = null;
+
+    // MOTOR LÓGICO DE LA HORA
+    function checkPuntualidad(timeStr) {
+        if (!timeStr || String(timeStr).trim() === '') return null;
+        let parts = String(timeStr).split(':');
+        if (parts.length !== 2) return null;
+
+        let hours = parseInt(parts[0], 10);
+        let mins = parseInt(parts[1], 10);
+        if(isNaN(hours) || isNaN(mins)) return null;
+
+        let totalMins = (hours * 60) + mins;
+        let limitMins = (8 * 60) + 10; // 08:10 AM son 490 minutos
+
+        return totalMins <= limitMins; 
+    }
+
+    function setGrupo(grupo) {
+        currentGrupo = grupo;
+        document.getElementById('tab-operativos').className = grupo === 'OPERATIVOS' ? 'pb-3 px-2 tab-active text-[14px] transition' : 'pb-3 px-2 tab-inactive text-[14px] transition';
+        document.getElementById('tab-admin').className = grupo === 'ADMIN' ? 'pb-3 px-2 tab-active text-[14px] transition' : 'pb-3 px-2 tab-inactive text-[14px] transition';
+        renderDashboard();
+    }
+
+    async function loadDataFromAPI() {
+        const tbodyOk = document.getElementById('listOk');
+        const tbodyLate = document.getElementById('listLate');
+        
+        tbodyOk.innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos de asistencia...</td></tr>`;
+        tbodyLate.innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos de asistencia...</td></tr>`;
+        
+        try {
+            const response = await fetch(API_URL);
+            const rawText = await response.text();
+            
+            // Detección de Error de Permisos (Bloqueo de Google)
+            if(rawText.includes("<!DOCTYPE html>")) {
+                const errorHtml = `<tr><td colspan="3" class="px-5 py-6 text-center text-bad-700 bg-bad-100/50">
+                    <b>🚨 BLOQUEO DE GOOGLE (CORS ERROR)</b><br><br>
+                    Tu API está pidiendo iniciar sesión. Debes ir a Google Apps Script y:<br>
+                    1. Clic en <b>Implementar > Nueva Implementación</b>.<br>
+                    2. En "Quién tiene acceso" poner <b>"Cualquier persona" (Anyone)</b>.<br>
+                    3. Actualizar la URL si cambia.
+                </td></tr>`;
+                tbodyOk.innerHTML = errorHtml;
+                tbodyLate.innerHTML = errorHtml;
+                return;
+            }
+
+            dataAsistencia = JSON.parse(rawText);
+            
+            if (dataAsistencia.error) {
+                tbodyOk.innerHTML = `<tr><td colspan="3" class="px-5 py-4 text-center text-warn-700 font-bold">Aviso del Excel: ${dataAsistencia.error}</td></tr>`;
+                return;
+            }
+
+            // AUTO-RELLENAR EL MENÚ DE DÍAS (Extrae los 31 días automáticamente)
+            let diasUnicos = new Set();
+            dataAsistencia.forEach(d => { if (d.dia && d.dia.trim() !== "") diasUnicos.add(d.dia.trim()); });
+            
+            const selectDia = document.getElementById('selectDia');
+            selectDia.innerHTML = ''; // Limpiamos opciones
+            
+            if (diasUnicos.size === 0) {
+                selectDia.innerHTML = '<option value="">No se encontraron fechas</option>';
+            } else {
+                Array.from(diasUnicos).forEach(dia => {
+                    selectDia.innerHTML += `<option value="${dia}">${dia}</option>`;
+                });
+            }
+
+            renderDashboard();
+
+        } catch (error) {
+            // El error "Failed to fetch" (Error de conexión / URL errónea o bloqueada)
+            const errorHtml = `<tr><td colspan="3" class="px-5 py-6 text-center text-bad-700 bg-bad-100/50">
+                    <b>🚨 ERROR DE CONEXIÓN (Failed to fetch)</b><br><br>
+                    Verifica que pegaste la URL correcta en tu código.<br>
+                    Si la URL es correcta, asegúrate de haber publicado tu script en Google Sheets para <b>"Cualquier Persona"</b>.
+                </td></tr>`;
+            tbodyOk.innerHTML = errorHtml;
+            tbodyLate.innerHTML = errorHtml;
+        }
+    }
+
+    function renderDashboard() {
+        if(dataAsistencia.length === 0 || !dataAsistencia[0].nombre) return;
+
+        const selectedDia = document.getElementById('selectDia').value;
+        const selectedTipo = document.getElementById('selectTipo').value.toLowerCase().replace(" ", ""); // "qr", "clockin", "odoo"
+        
+        let onTimeData = [];
+        let lateData = [];
+
+        dataAsistencia.forEach(row => {
+            if(row.dia !== selectedDia) return;
+
+            // Filtro por Roles
+            const isOperativo = String(row.rol).toUpperCase().includes("TECHNICIAN") || String(row.rol).toUpperCase().includes("TEAM LEADER") || String(row.rol).toUpperCase().includes("TORRERO");
+            const isAdmin = String(row.rol).toUpperCase().includes("ADMINISTRATIVO") || String(row.rol).toUpperCase().includes("ASISTENTE") || String(row.rol).toUpperCase().includes("RH");
+
+            if(currentGrupo === 'OPERATIVOS' && !isOperativo) return;
+            if(currentGrupo === 'ADMIN' && !isAdmin) return;
+
+            const timeVal = row[selectedTipo]; // Busca la hora
+            const isPuntual = checkPuntualidad(timeVal);
+
+            if (isPuntual === true) {
+                onTimeData.push({ nombre: row.nombre, rol: row.rol, hora: timeVal });
+            } else if (isPuntual === false) {
+                lateData.push({ nombre: row.nombre, rol: row.rol, hora: timeVal });
+            }
+        });
+
+        updateUI(onTimeData, lateData);
+    }
+
+    function updateUI(onTimeData, lateData) {
+        const total = onTimeData.length + lateData.length;
+        const countOk = onTimeData.length;
+        const countLate = lateData.length;
+        
+        document.getElementById('kpiTotal').textContent = total;
+        document.getElementById('kpiOk').textContent = countOk;
+        document.getElementById('kpiLate').textContent = countLate;
+        document.getElementById('countOk').textContent = countOk;
+        document.getElementById('countLate').textContent = countLate;
+
+        let tasa = total === 0 ? 0 : Math.round((countOk / total) * 100);
+        document.getElementById('kpiTasa').textContent = tasa + '%';
+
+        // Actualizar ambos gráficos
+        renderCharts(countOk, countLate);
+
+        const sortByTime = (a, b) => {
+            const timeA = parseInt(a.hora.split(':')[0])*60 + parseInt(a.hora.split(':')[1]);
+            const timeB = parseInt(b.hora.split(':')[0])*60 + parseInt(b.hora.split(':')[1]);
+            return timeA - timeB;
+        };
+
+        const tOk = document.getElementById('listOk');
+        tOk.innerHTML = '';
+        if(onTimeData.length === 0) tOk.innerHTML = '<tr><td colspan="3" class="px-5 py-10 text-ink-500 text-center">Nadie marcó a tiempo este día.</td></tr>';
+        onTimeData.sort(sortByTime).forEach(r => {
+            tOk.innerHTML += `<tr class="hover:bg-ok-100/50 transition"><td class="px-5 py-3 border-b border-line/50">${r.nombre}</td><td class="px-5 py-3 border-b border-line/50 text-ink-500 font-mono text-[11px]">${r.rol}</td><td class="px-5 py-3 border-b border-line/50 text-right font-bold text-ok-700 text-[14px]">${r.hora}</td></tr>`;
+        });
+
+        const tLate = document.getElementById('listLate');
+        tLate.innerHTML = '';
+        if(lateData.length === 0) tLate.innerHTML = '<tr><td colspan="3" class="px-5 py-10 text-ink-500 text-center">Nadie marcó tarde este día.</td></tr>';
+        lateData.sort(sortByTime).forEach(r => {
+            tLate.innerHTML += `<tr class="hover:bg-bad-100/50 transition"><td class="px-5 py-3 border-b border-line/50">${r.nombre}</td><td class="px-5 py-3 border-b border-line/50 text-ink-500 font-mono text-[11px]">${r.rol}</td><td class="px-5 py-3 border-b border-line/50 text-right font-bold text-bad-700 text-[14px]">${r.hora}</td></tr>`;
+        });
+    }
+
+    function renderCharts(ok, late) {
+        // 1. DOUGHNUT CHART (Porcentajes)
+        if(myChart) myChart.destroy();
+        const ctxPie = document.getElementById('chartAsistencia').getContext('2d');
+        
+        if (ok === 0 && late === 0) {
+            myChart = new Chart(ctxPie, {
+                type: 'doughnut', data: { labels: ['Sin datos'], datasets: [{ data: [1], backgroundColor: ['#E3E7ED'] }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '75%', animation: false }
+            });
+        } else {
+            myChart = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [ok, late], backgroundColor: ['#0E6B45', '#A32E27'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12, family: 'Inter' } } } } }
+            });
+        }
+
+        // 2. BAR CHART (Comparativa de Barras que reemplaza al texto)
+        if(myBarChart) myBarChart.destroy();
+        const ctxBar = document.getElementById('chartBarrasAsistencia').getContext('2d');
+
+        if (ok === 0 && late === 0) {
+            myBarChart = new Chart(ctxBar, {
+                type: 'bar',
+                data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [0, 0], backgroundColor: ['#E3E7ED', '#E3E7ED'] }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false } } }
+            });
+        } else {
+            myBarChart = new Chart(ctxBar, {
+                type: 'bar',
+                data: { 
+                    labels: ['A Tiempo', 'Tarde'], 
+                    datasets: [{ 
+                        data: [ok, late], 
+                        backgroundColor: ['#0E6B45', '#A32E27'], // Verde y Rojo respectivo
+                        borderRadius: 4
+                    }] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } }, // Ocultamos la leyenda superior para que se vea limpio
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } 
+                }
+            });
+        }
+    }
+
+    // Arranque automático
+    window.onload = () => { loadDataFromAPI(); };
+</script>
+</body>
+</html>
