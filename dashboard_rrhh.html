@@ -347,13 +347,12 @@
         return str;
     }
 
-    async function loadDataFromAPI() {
+async function loadDataFromAPI() {
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-16 text-center text-ink-500">
             <svg class="spinner mx-auto mb-3" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0B2245" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/></svg>
             <div class="font-medium text-[13.5px]">Descargando y calculando vencimientos…</div>
         </td></tr>`;
-        
         try {
             const response = await fetch(API_URL);
             globalData = await response.json();
@@ -361,9 +360,6 @@
             populateFilterDropdowns();
             renderTable(globalData);
             updateDashboardAnalytics(globalData);
-            
-            const now = new Date();
-            document.getElementById('lastSync').textContent = 'Sincronizado: ' + now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
         } catch (error) {
             console.error("Detalle del error:", error);
             tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-10 text-center text-bad-700 text-[13.5px] font-medium">Hubo un pequeño error interno al procesar los datos. Presiona F12 y revisa la consola para ver qué falló.</td></tr>`;
