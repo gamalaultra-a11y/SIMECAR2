@@ -7,7 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
+<!-- Chart.js para Gráficos -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
@@ -38,6 +40,7 @@
 </head>
 <body class="bg-canvas text-ink-900 font-sans antialiased min-h-screen flex flex-col">
 
+<!-- Navbar -->
 <nav class="bg-navy-900 text-white border-b border-navy-700/40 shrink-0">
     <div class="max-w-[1400px] mx-auto px-6 flex justify-between h-16 items-center">
         <div class="flex items-center gap-4">
@@ -51,8 +54,9 @@
             </div>
         </div>
         <div class="flex gap-4">
-            <a href="dashboard_rrhh.html" class="text-[12px] font-semibold text-white/80 hover:text-white transition flex items-center gap-1">
-                Volver a Data Maestra
+            <!-- Botón para volver al Dashboard Principal -->
+            <a href="index.html" class="text-[12px] font-semibold text-white/80 hover:text-white transition flex items-center gap-1">
+                ← Volver a Data Maestra
             </a>
         </div>
     </div>
@@ -60,6 +64,7 @@
 
 <main class="max-w-[1400px] mx-auto px-6 py-8 flex-grow w-full">
 
+    <!-- Controles Superiores -->
     <div class="mb-6 flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-4 rounded-xl border border-line shadow-sm">
         <div class="flex gap-6 border-b border-line w-full md:w-auto">
             <button id="tab-operativos" onclick="setGrupo('OPERATIVOS')" class="pb-3 px-2 tab-active text-[14px] transition">Técnicos & Team Leaders</button>
@@ -81,8 +86,10 @@
         </div>
     </div>
 
+    <!-- Panel de Analítica Superior -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         
+        <!-- KPIs -->
         <div class="grid grid-cols-2 gap-4 h-full">
             <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
                 <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Total Marcaciones</div>
@@ -104,6 +111,7 @@
             </div>
         </div>
 
+        <!-- Gráfico Doughnut -->
         <div class="bg-white rounded-xl border border-line p-5 flex flex-col items-center justify-center shadow-sm h-64 lg:h-auto">
             <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-2 w-full text-center">Porcentaje de Asistencia</h4>
             <div class="relative w-full h-full flex justify-center max-h-[180px]">
@@ -111,6 +119,7 @@
             </div>
         </div>
 
+        <!-- Gráfico de Barras -->
         <div class="bg-white rounded-xl border border-line p-5 flex flex-col items-center justify-center shadow-sm h-64 lg:h-auto">
             <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-2 w-full text-center">Comparativa (A Tiempo vs Tarde)</h4>
             <div class="relative w-full h-full flex justify-center max-h-[180px]">
@@ -119,8 +128,10 @@
         </div>
     </div>
 
+    <!-- Listas Detalladas (A Tiempo vs Tarde) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
+        <!-- Lista: A Tiempo -->
         <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
             <div class="bg-ok-100 border-b border-ok-700/20 px-5 py-3 flex justify-between items-center shrink-0">
                 <h3 class="font-bold text-ok-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
@@ -138,11 +149,13 @@
                         </tr>
                     </thead>
                     <tbody id="listOk" class="divide-y divide-line text-[13px] font-medium text-navy-900">
+                        <!-- Llenado por JS -->
                     </tbody>
                 </table>
             </div>
         </div>
 
+        <!-- Lista: Tarde -->
         <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
             <div class="bg-bad-100 border-b border-bad-700/20 px-5 py-3 flex justify-between items-center shrink-0">
                 <h3 class="font-bold text-bad-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
@@ -160,6 +173,7 @@
                         </tr>
                     </thead>
                     <tbody id="listLate" class="divide-y divide-line text-[13px] font-medium text-navy-900">
+                        <!-- Llenado por JS -->
                     </tbody>
                 </table>
             </div>
@@ -169,14 +183,17 @@
 </main>
 
 <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxpJSimOH1wsqpe0IYGHGhQzcpr-uqkqU0iy6qKfNo5HJ5MJk625AhWP0MXyd7q-OHv/exec';
+    // 🚨 AQUÍ ESTÁ TU NUEVA URL PERFECTAMENTE CONFIGURADA
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxNRTuSYdNJ9AwY12PJ9JeR4ExzbVfMI-bzAbeT4s8BqSrZ4zBMoR5ZxJ0vXkzOG08/exec?modo=asistencia'; 
     
     let dataAsistencia = [];
-    let currentGrupo = 'OPERATIVOS';
+    let currentGrupo = 'OPERATIVOS'; // 'OPERATIVOS' o 'ADMIN'
     
+    // Variables para los gráficos
     let myChart = null;
     let myBarChart = null;
 
+    // MOTOR LÓGICO DE LA HORA
     function checkPuntualidad(timeStr) {
         if (!timeStr || String(timeStr).trim() === '') return null;
         let parts = String(timeStr).split(':');
@@ -187,7 +204,7 @@
         if(isNaN(hours) || isNaN(mins)) return null;
 
         let totalMins = (hours * 60) + mins;
-        let limitMins = (8 * 60) + 10;
+        let limitMins = (8 * 60) + 10; // 08:10 AM son 490 minutos
 
         return totalMins <= limitMins; 
     }
@@ -210,13 +227,14 @@
             const response = await fetch(API_URL);
             const rawText = await response.text();
             
+            // Detección de Error de Permisos (Bloqueo de Google)
             if(rawText.includes("<!DOCTYPE html>")) {
                 const errorHtml = `<tr><td colspan="3" class="px-5 py-6 text-center text-bad-700 bg-bad-100/50">
                     <b>🚨 BLOQUEO DE GOOGLE (CORS ERROR)</b><br><br>
                     Tu API está pidiendo iniciar sesión. Debes ir a Google Apps Script y:<br>
                     1. Clic en <b>Implementar > Nueva Implementación</b>.<br>
                     2. En "Quién tiene acceso" poner <b>"Cualquier persona" (Anyone)</b>.<br>
-                    3. Actualizar la URL si cambia.
+                    3. Actualizar la URL en el HTML si cambia.
                 </td></tr>`;
                 tbodyOk.innerHTML = errorHtml;
                 tbodyLate.innerHTML = errorHtml;
@@ -230,11 +248,12 @@
                 return;
             }
 
+            // AUTO-RELLENAR EL MENÚ DE DÍAS (Extrae todos los días de tu Excel)
             let diasUnicos = new Set();
             dataAsistencia.forEach(d => { if (d.dia && d.dia.trim() !== "") diasUnicos.add(d.dia.trim()); });
             
             const selectDia = document.getElementById('selectDia');
-            selectDia.innerHTML = '';
+            selectDia.innerHTML = ''; // Limpiamos opciones
             
             if (diasUnicos.size === 0) {
                 selectDia.innerHTML = '<option value="">No se encontraron fechas</option>';
@@ -247,10 +266,11 @@
             renderDashboard();
 
         } catch (error) {
+            // El error "Failed to fetch" (Error de conexión / URL errónea o bloqueada)
             const errorHtml = `<tr><td colspan="3" class="px-5 py-6 text-center text-bad-700 bg-bad-100/50">
                     <b>🚨 ERROR DE CONEXIÓN (Failed to fetch)</b><br><br>
-                    Verifica que pegaste la URL correcta en tu código.<br>
-                    Si la URL es correcta, asegúrate de haber publicado tu script en Google Sheets para <b>"Cualquier Persona"</b>.
+                    Esto ocurre si la URL de la API es incorrecta o si Google bloqueó el acceso.<br>
+                    Asegúrate de publicar el script en Google Sheets como "Nueva Implementación" y acceso para "Cualquier persona".
                 </td></tr>`;
             tbodyOk.innerHTML = errorHtml;
             tbodyLate.innerHTML = errorHtml;
@@ -261,7 +281,7 @@
         if(dataAsistencia.length === 0 || !dataAsistencia[0].nombre) return;
 
         const selectedDia = document.getElementById('selectDia').value;
-        const selectedTipo = document.getElementById('selectTipo').value.toLowerCase().replace(" ", ""); 
+        const selectedTipo = document.getElementById('selectTipo').value.toLowerCase().replace(" ", ""); // "qr", "clockin", "odoo"
         
         let onTimeData = [];
         let lateData = [];
@@ -269,13 +289,14 @@
         dataAsistencia.forEach(row => {
             if(row.dia !== selectedDia) return;
 
+            // Filtro por Roles
             const isOperativo = String(row.rol).toUpperCase().includes("TECHNICIAN") || String(row.rol).toUpperCase().includes("TEAM LEADER") || String(row.rol).toUpperCase().includes("TORRERO");
             const isAdmin = String(row.rol).toUpperCase().includes("ADMINISTRATIVO") || String(row.rol).toUpperCase().includes("ASISTENTE") || String(row.rol).toUpperCase().includes("RH");
 
             if(currentGrupo === 'OPERATIVOS' && !isOperativo) return;
             if(currentGrupo === 'ADMIN' && !isAdmin) return;
 
-            const timeVal = row[selectedTipo];
+            const timeVal = row[selectedTipo]; // Busca la hora
             const isPuntual = checkPuntualidad(timeVal);
 
             if (isPuntual === true) {
@@ -302,6 +323,7 @@
         let tasa = total === 0 ? 0 : Math.round((countOk / total) * 100);
         document.getElementById('kpiTasa').textContent = tasa + '%';
 
+        // Actualizar ambos gráficos
         renderCharts(countOk, countLate);
 
         const sortByTime = (a, b) => {
@@ -326,6 +348,7 @@
     }
 
     function renderCharts(ok, late) {
+        // 1. DOUGHNUT CHART (Porcentajes)
         if(myChart) myChart.destroy();
         const ctxPie = document.getElementById('chartAsistencia').getContext('2d');
         
@@ -342,6 +365,7 @@
             });
         }
 
+        // 2. BAR CHART (Comparativa)
         if(myBarChart) myBarChart.destroy();
         const ctxBar = document.getElementById('chartBarrasAsistencia').getContext('2d');
 
@@ -371,6 +395,8 @@
             });
         }
     }
+
+    // Arranque automático
     window.onload = () => { loadDataFromAPI(); };
 </script>
 </body>
