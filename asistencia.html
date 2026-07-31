@@ -7,8 +7,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
+<!-- Chart.js para Gráficos -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
 <script>
     tailwind.config = {
@@ -21,7 +26,7 @@
                     ok: { 700: '#0E6B45', 100: '#E4F4EC' },
                     bad: { 700: '#A32E27', 100: '#FBEAE9' },
                     warn: { 700: '#B45309', 100: '#FEF3C7' },
-                    purple: { 700: '#6B21A8', 100: '#F3E8FF' } // Nuevo color para reportes ejecutivos
+                    purple: { 700: '#6B21A8', 100: '#F3E8FF' }
                 },
                 fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['IBM Plex Mono', 'monospace'] }
             }
@@ -38,18 +43,23 @@
     .tab-active-exec { border-bottom: 3px solid #6B21A8; color: #6B21A8; font-weight: 700; }
     .tab-inactive { color: #647087; font-weight: 500; }
     .tab-inactive:hover { color: #1B2430; }
+    
+    .pdf-mode { background-color: #ffffff !important; }
+    .pdf-mode .shadow-sm { box-shadow: none !important; border: 1px solid #CBD5E1 !important; }
+    .pdf-mode .rounded-xl, .pdf-mode .rounded-lg, .pdf-mode .rounded { border-radius: 4px !important; }
+    .pdf-mode table { width: 100% !important; border-collapse: collapse !important; }
+    .pdf-mode thead { display: table-header-group !important; } /* Repite títulos en hojas nuevas */
+    .pdf-mode tbody { display: table-row-group !important; }
+    .pdf-mode tr { page-break-inside: avoid !important; break-inside: avoid !important; } /* Evita cortar filas */
+    .pdf-mode .avoid-break-pdf { page-break-inside: avoid !important; break-inside: avoid !important; }
 </style>
 </head>
 <body class="bg-canvas text-ink-900 font-sans antialiased min-h-screen flex flex-col">
 
-<!-- Navbar -->
-<nav class="bg-navy-900 text-white border-b border-navy-700/40 shrink-0">
+<nav class="bg-navy-900 text-white border-b border-navy-700/40 shrink-0" data-html2canvas-ignore="true">
     <div class="max-w-[1400px] mx-auto px-6 flex justify-between h-16 items-center">
         <div class="flex items-center gap-4">
-            <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-                <rect width="30" height="30" rx="6" fill="#B08A2E"/>
-                <path d="M15 8v14M8 15h14" stroke="#0B2245" stroke-width="2" stroke-linecap="round"/>
-            </svg>
+            <img src="logo.png" alt="Logo Empresa" class="h-10 w-auto object-contain" />
             <div class="leading-tight">
                 <div class="font-bold text-[15px] tracking-wide">CONTROL DE ASISTENCIA</div>
                 <div class="text-[11px] text-white/50 tracking-wide">Dashboard Operativo y Gerencial</div>
@@ -63,9 +73,10 @@
     </div>
 </nav>
 
-<main class="max-w-[1400px] mx-auto px-6 py-8 flex-grow w-full">
+<main class="max-w-[1400px] mx-auto px-6 py-8 flex-grow w-full" id="area-impresion">
 
-    <div class="mb-6 flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-4 rounded-xl border border-line shadow-sm">
+    <!-- CONTROLES (Se ignoran en el PDF) -->
+    <div class="mb-6 flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-4 rounded-xl border border-line shadow-sm" data-html2canvas-ignore="true">
         <div class="flex gap-6 border-b border-line w-full md:w-auto overflow-x-auto">
             <button id="tab-operativos" onclick="setGrupo('OPERATIVOS')" class="pb-3 px-2 tab-active text-[14px] transition whitespace-nowrap">Técnicos & Team Leaders</button>
             <button id="tab-admin" onclick="setGrupo('ADMIN')" class="pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap">Administrativos</button>
@@ -73,15 +84,20 @@
             <button id="tab-ejecutivo" onclick="setGrupo('EJECUTIVO')" class="pb-3 px-2 tab-inactive text-[14px] transition flex items-center gap-2 whitespace-nowrap">Reporte Mensual</button>
         </div>
         
-        <div class="flex gap-3 w-full md:w-auto">
-            <button onclick="loadDataFromAPI()" class="border border-line px-3 py-2 rounded-lg text-ink-700 hover:bg-canvas transition" title="Actualizar datos">
+        <div class="flex gap-2 w-full md:w-auto flex-wrap justify-end">
+            <button onclick="exportToPDF()" class="border border-line px-3 py-2 rounded-lg text-purple-700 hover:bg-purple-50 transition flex items-center gap-1 font-bold text-[12px]" title="Exportar a PDF">
+                PDF
+            </button>
+            <button onclick="exportToExcel()" class="border border-line px-3 py-2 rounded-lg text-ok-700 hover:bg-ok-100 transition flex items-center gap-1 font-bold text-[12px]" title="Exportar tablas a Excel">
+                EXCEL
+            </button>
+            <button onclick="loadDataFromAPI()" class="border border-line px-3 py-2 rounded-lg text-ink-700 hover:bg-canvas transition ml-2" title="Actualizar datos">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>
             </button>
-            <!-- Selector de Día (Se oculta en vista ejecutiva) -->
-            <select id="selectDia" onchange="renderDashboard()" class="border border-line rounded-lg px-4 py-2 text-[13px] focus:outline-none focus:border-navy-900 bg-white font-medium shadow-sm">
+            <select id="selectDia" onchange="renderDashboard()" class="border border-line rounded-lg px-3 py-2 text-[12px] focus:outline-none focus:border-navy-900 bg-white font-medium shadow-sm">
                 <option value="">Cargando días...</option>
             </select>
-            <select id="selectTipo" onchange="renderDashboard()" class="border border-line rounded-lg px-4 py-2 text-[13px] focus:outline-none focus:border-navy-900 bg-white font-medium shadow-sm">
+            <select id="selectTipo" onchange="renderDashboard()" class="border border-line rounded-lg px-3 py-2 text-[12px] focus:outline-none focus:border-navy-900 bg-white font-medium shadow-sm">
                 <option value="ODOO">ODOO</option>
                 <option value="CLOCK IN">CLOCK IN</option>
                 <option value="QR">Marcación QR</option>
@@ -89,24 +105,29 @@
         </div>
     </div>
 
+    <!-- TÍTULO PARA EL PDF -->
+    <div id="pdf-header" class="hidden text-center mb-6 avoid-break-pdf">
+        <h1 class="text-2xl font-bold text-navy-900">REPORTE DE ASISTENCIA</h1>
+        <p class="text-ink-500 font-medium mt-1" id="pdf-subtitle"></p>
+    </div>
+
+    <!-- 🌟 VISTA DASHBOARD NORMAL (DIARIA) 🌟 -->
     <div id="vista-dashboard" class="block">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 avoid-break-pdf print-stack">
             <div class="grid grid-cols-2 gap-4 h-full">
-                <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
+                <div class="bg-white rounded-xl border border-line p-5 relative shadow-sm flex flex-col justify-center">
                     <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Total Marcaciones</div>
                     <div class="text-4xl font-extrabold text-navy-900" id="kpiTotal">0</div>
                 </div>
-                <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
-                    <div class="absolute left-0 top-0 h-full w-1.5 bg-ok-700"></div>
+                <div class="bg-white rounded-xl border border-line p-5 relative shadow-sm flex flex-col justify-center">
                     <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">A Tiempo (≤ 8:10)</div>
                     <div class="text-4xl font-extrabold text-ok-700" id="kpiOk">0</div>
                 </div>
-                <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
-                    <div class="absolute left-0 top-0 h-full w-1.5 bg-bad-700"></div>
+                <div class="bg-white rounded-xl border border-line p-5 relative shadow-sm flex flex-col justify-center">
                     <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Tarde (> 8:10)</div>
                     <div class="text-4xl font-extrabold text-bad-700" id="kpiLate">0</div>
                 </div>
-                <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
+                <div class="bg-white rounded-xl border border-line p-5 relative shadow-sm flex flex-col justify-center">
                     <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Tasa de Puntualidad</div>
                     <div class="text-4xl font-extrabold text-navy-900" id="kpiTasa">0%</div>
                 </div>
@@ -120,34 +141,34 @@
                 <div class="relative w-full h-full flex justify-center max-h-[180px]"><canvas id="chartBarrasAsistencia"></canvas></div>
             </div>
         </div>
+        
+        <!-- SALTO DE HOJA (PDF) -->
+        <div class="html2pdf__page-break"></div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-stack">
+            <div class="bg-white rounded-xl border border-line shadow-sm flex flex-col avoid-break-pdf">
                 <div class="bg-ok-100 border-b border-ok-700/20 px-5 py-3 flex justify-between items-center shrink-0">
-                    <h3 class="font-bold text-ok-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full bg-ok-700"></div> A Tiempo (≤ 8:10)
-                    </h3>
-                    <span class="text-[12px] font-bold text-ok-700 bg-white px-2 py-1 rounded" id="countOk">0</span>
+                    <h3 class="font-bold text-ok-700 text-[14px] uppercase tracking-wide">🟢 A Tiempo (≤ 8:10)</h3>
+                    <span class="text-[12px] font-bold text-ok-700 bg-white px-2 py-1 rounded border border-ok-700/20" id="countOk">0</span>
                 </div>
-                <div class="overflow-y-auto flex-grow p-0">
+                <div class="overflow-y-auto max-h-[500px] flex-grow p-0 print-expand">
                     <table class="w-full text-left">
-                        <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold shadow-sm">
+                        <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold">
                             <tr><th class="px-5 py-3">Trabajador</th><th class="px-5 py-3">Team</th><th class="px-5 py-3 text-right">Hora</th></tr>
                         </thead>
                         <tbody id="listOk" class="divide-y divide-line text-[13px] font-medium text-navy-900"></tbody>
                     </table>
                 </div>
             </div>
-            <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
+            
+            <div class="bg-white rounded-xl border border-line shadow-sm flex flex-col avoid-break-pdf print-mt">
                 <div class="bg-bad-100 border-b border-bad-700/20 px-5 py-3 flex justify-between items-center shrink-0">
-                    <h3 class="font-bold text-bad-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full bg-bad-700"></div> Tarde (> 8:10)
-                    </h3>
-                    <span class="text-[12px] font-bold text-bad-700 bg-white px-2 py-1 rounded" id="countLate">0</span>
+                    <h3 class="font-bold text-bad-700 text-[14px] uppercase tracking-wide">🔴 Tarde (> 8:10)</h3>
+                    <span class="text-[12px] font-bold text-bad-700 bg-white px-2 py-1 rounded border border-bad-700/20" id="countLate">0</span>
                 </div>
-                <div class="overflow-y-auto flex-grow p-0">
+                <div class="overflow-y-auto max-h-[500px] flex-grow p-0 print-expand">
                     <table class="w-full text-left">
-                        <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold shadow-sm">
+                        <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold">
                             <tr><th class="px-5 py-3">Trabajador</th><th class="px-5 py-3">Team</th><th class="px-5 py-3 text-right">Hora</th></tr>
                         </thead>
                         <tbody id="listLate" class="divide-y divide-line text-[13px] font-medium text-navy-900"></tbody>
@@ -159,14 +180,14 @@
 
     <!-- VISTA AUDITORÍA -->
     <div id="vista-auditoria" class="hidden">
-        <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col">
+        <div class="bg-white rounded-xl border border-line shadow-sm flex flex-col avoid-break-pdf">
             <div class="bg-navy-950 px-5 py-4 flex justify-between items-center shrink-0">
                 <h3 class="font-bold text-white text-[14px] uppercase tracking-wide">Discrepancias Detectadas</h3>
                 <span class="text-[12px] font-bold text-white bg-bad-700 px-3 py-1 rounded" id="countAlertas">0 Alertas</span>
             </div>
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto overflow-y-auto max-h-[600px] print-expand">
                 <table class="w-full text-left">
-                    <thead class="bg-canvas border-b border-line text-[11px] text-ink-500 uppercase font-semibold">
+                    <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold">
                         <tr><th class="px-5 py-4">Trabajador</th><th class="px-5 py-4">Team</th><th class="px-5 py-4 text-center">Odoo</th><th class="px-5 py-4 text-center">Clock In</th><th class="px-5 py-4">Motivo de Alerta</th></tr>
                     </thead>
                     <tbody id="listAuditoria" class="divide-y divide-line text-[13px] font-medium text-navy-900"></tbody>
@@ -175,50 +196,43 @@
         </div>
     </div>
 
+    <!-- 🌟 VISTA EJECUTIVA (REPORTE MENSUAL) 🌟 -->
     <div id="vista-ejecutivo" class="hidden">
-    
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 avoid-break-pdf print-stack">
             <div class="bg-white rounded border border-line p-5 shadow-sm">
                 <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Total Marcaciones Mes</div>
                 <div class="text-3xl font-black text-navy-900" id="execTotalMarks">0</div>
             </div>
-            <div class="bg-white rounded border border-line p-5 shadow-sm border-b-4 border-b-ok-700">
+            <div class="bg-white rounded border border-line p-5 shadow-sm">
                 <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">% Puntualidad Global</div>
                 <div class="text-3xl font-black text-ok-700" id="execPercOk">0%</div>
             </div>
-            <div class="bg-white rounded border border-line p-5 shadow-sm border-b-4 border-b-bad-700">
+            <div class="bg-white rounded border border-line p-5 shadow-sm">
                 <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">% Tardanzas Global</div>
                 <div class="text-3xl font-black text-bad-700" id="execPercLate">0%</div>
             </div>
-            <div class="bg-white rounded border border-line p-5 shadow-sm border-b-4 border-b-purple-700">
+            <div class="bg-white rounded border border-line p-5 shadow-sm">
                 <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Personal Asistencia Perfecta</div>
                 <div class="text-3xl font-black text-purple-700" id="execPerfectos">0</div>
                 <div class="text-[10px] text-ink-500 mt-1">Cero tardanzas en el mes</div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <div class="lg:col-span-2 bg-white rounded border border-line p-5 shadow-sm">
-                <h4 class="text-[13px] font-bold text-navy-900 uppercase tracking-wide mb-4">Tendencia Diaria de Tardanzas</h4>
-                <div class="relative w-full h-64">
-                    <canvas id="chartTrend"></canvas>
-                </div>
-            </div>
-            <div class="bg-white rounded border border-line p-5 shadow-sm flex flex-col items-center">
-                <h4 class="text-[13px] font-bold text-navy-900 uppercase tracking-wide mb-4 w-full text-center">Proporción Mensual</h4>
-                <div class="relative w-full h-48 flex justify-center">
-                    <canvas id="chartExecPie"></canvas>
-                </div>
+        <div class="bg-white rounded border border-line p-5 shadow-sm mb-6 avoid-break-pdf">
+            <h4 class="text-[13px] font-bold text-navy-900 uppercase tracking-wide mb-4">Tendencia Diaria de Tardanzas</h4>
+            <div class="relative w-full h-64">
+                <canvas id="chartTrend"></canvas>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <div class="lg:col-span-1 bg-white rounded border border-line shadow-sm overflow-hidden flex flex-col">
+        <div class="html2pdf__page-break"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 print-stack">
+            <div class="bg-white rounded border border-line shadow-sm flex flex-col avoid-break-pdf">
                 <div class="bg-bad-700 px-5 py-3 flex justify-between items-center">
-                    <h3 class="font-bold text-white text-[13px] uppercase tracking-wide flex items-center gap-2">Top 10 Tardanzas</h3>
+                    <h3 class="font-bold text-white text-[13px] uppercase tracking-wide">Top 10 Tardanzas</h3>
                 </div>
-                <div class="overflow-y-auto max-h-[400px]">
+                <div class="overflow-y-auto max-h-[400px] print-expand">
                     <table class="w-full text-left">
                         <thead class="bg-canvas sticky top-0 border-b border-line text-[10px] text-ink-500 uppercase font-semibold">
                             <tr><th class="px-4 py-2">Trabajador</th><th class="px-4 py-2 text-center">Tardanzas</th></tr>
@@ -228,31 +242,37 @@
                     </table>
                 </div>
             </div>
-
-            <div class="lg:col-span-2 bg-white rounded border border-line shadow-sm overflow-hidden flex flex-col">
-                <div class="bg-navy-900 px-5 py-3 flex justify-between items-center">
-                    <h3 class="font-bold text-white text-[13px] uppercase tracking-wide">Ficha Individual de Asistencia Mensual</h3>
-                </div>
-                <div class="overflow-y-auto max-h-[400px]">
-                    <table class="w-full text-left">
-                        <thead class="bg-canvas sticky top-0 border-b border-line text-[10px] text-ink-500 uppercase font-semibold">
-                            <tr>
-                                <th class="px-5 py-3">Trabajador</th>
-                                <th class="px-5 py-3">Team</th>
-                                <th class="px-5 py-3 text-center">A Tiempo</th>
-                                <th class="px-5 py-3 text-center">Tardanzas</th>
-                                <th class="px-5 py-3 text-center">% Puntualidad</th>
-                            </tr>
-                        </thead>
-                        <tbody id="listResumenPersonal" class="divide-y divide-line text-[12px] font-medium text-navy-900">
-                        </tbody>
-                    </table>
+            <div class="bg-white rounded border border-line p-5 shadow-sm flex flex-col items-center justify-center avoid-break-pdf print-mt">
+                <h4 class="text-[13px] font-bold text-navy-900 uppercase tracking-wide mb-4 w-full text-center">Proporción Mensual</h4>
+                <div class="relative w-full h-64 flex justify-center">
+                    <canvas id="chartExecPie"></canvas>
                 </div>
             </div>
+        </div>
 
+        <div class="html2pdf__page-break"></div>
+
+        <div class="bg-white rounded border border-line shadow-sm flex flex-col avoid-break-pdf">
+            <div class="bg-navy-900 px-5 py-3 flex justify-between items-center">
+                <h3 class="font-bold text-white text-[13px] uppercase tracking-wide">Ficha Individual de Asistencia Mensual</h3>
+            </div>
+            <div class="overflow-y-auto max-h-[450px] print-expand">
+                <table class="w-full text-left">
+                    <thead class="bg-canvas sticky top-0 border-b border-line text-[10px] text-ink-500 uppercase font-semibold">
+                        <tr>
+                            <th class="px-5 py-3">Trabajador</th>
+                            <th class="px-5 py-3">Team</th>
+                            <th class="px-5 py-3 text-center">A Tiempo</th>
+                            <th class="px-5 py-3 text-center">Tardanzas</th>
+                            <th class="px-5 py-3 text-center">% Puntualidad</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listResumenPersonal" class="divide-y divide-line text-[12px] font-medium text-navy-900">
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-
 </main>
 
 <script>
@@ -260,39 +280,28 @@
     
     let dataAsistencia = [];
     let currentGrupo = 'OPERATIVOS'; 
-    
-    // Instancias de gráficos
-    let myChart = null;
-    let myBarChart = null;
-    let trendChart = null;
-    let execPieChart = null;
+    let myChart = null, myBarChart = null, trendChart = null, execPieChart = null;
 
     function parseHoraAMinutos(timeStr) {
         if (!timeStr || String(timeStr).trim() === '' || timeStr === 'F' || timeStr === 'QR' || timeStr === 'E') return null;
         let parts = String(timeStr).split(':');
         if (parts.length !== 2) return null;
-        let hours = parseInt(parts[0], 10);
-        let mins = parseInt(parts[1], 10);
-        if(isNaN(hours) || isNaN(mins)) return null;
-        return (hours * 60) + mins;
+        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
     }
 
     function checkPuntualidad(timeStr) {
         let totalMins = parseHoraAMinutos(timeStr);
-        if (totalMins === null) return null;
-        return totalMins <= ((8 * 60) + 10); 
+        return totalMins === null ? null : totalMins <= ((8 * 60) + 10); 
     }
 
     function setGrupo(grupo) {
         currentGrupo = grupo;
         
-        // Colores de pestañas
         document.getElementById('tab-operativos').className = grupo === 'OPERATIVOS' ? 'pb-3 px-2 tab-active text-[14px] transition whitespace-nowrap' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap';
         document.getElementById('tab-admin').className = grupo === 'ADMIN' ? 'pb-3 px-2 tab-active text-[14px] transition whitespace-nowrap' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap';
         document.getElementById('tab-auditoria').className = grupo === 'AUDITORIA' ? 'pb-3 px-2 tab-active-warn text-[14px] transition whitespace-nowrap flex items-center gap-2' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap flex items-center gap-2';
         document.getElementById('tab-ejecutivo').className = grupo === 'EJECUTIVO' ? 'pb-3 px-2 tab-active-exec text-[14px] transition whitespace-nowrap flex items-center gap-2' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap flex items-center gap-2';
 
-        // Manejo de Vistas y Selectores
         document.getElementById('vista-dashboard').classList.add('hidden');
         document.getElementById('vista-auditoria').classList.add('hidden');
         document.getElementById('vista-ejecutivo').classList.add('hidden');
@@ -312,97 +321,64 @@
         } else {
             document.getElementById('vista-dashboard').classList.remove('hidden');
         }
-        
         renderDashboard();
     }
 
     async function loadDataFromAPI() {
-        document.getElementById('listOk').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos...</td></tr>`;
-        document.getElementById('listLate').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos...</td></tr>`;
+        document.getElementById('listOk').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando...</td></tr>`;
+        document.getElementById('listLate').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando...</td></tr>`;
         
         try {
             const response = await fetch(API_URL);
             const rawText = await response.text();
-            
-            if(rawText.includes("<!DOCTYPE html>")) {
-                alert("Error: Google Apps Script bloqueó el acceso. Verifica la implementación.");
-                return;
-            }
+            if(rawText.includes("<!DOCTYPE html>")) { alert("Error: Google Apps Script bloqueado."); return; }
 
             dataAsistencia = JSON.parse(rawText);
-
             let diasUnicos = new Set();
             dataAsistencia.forEach(d => { if (d.dia && d.dia.trim() !== "") diasUnicos.add(d.dia.trim()); });
             
-            // Ordenamos los días para que la tendencia salga cronológica
             let diasOrdenados = Array.from(diasUnicos).sort((a,b) => parseInt(a) - parseInt(b));
-            
             const selectDia = document.getElementById('selectDia');
             selectDia.innerHTML = ''; 
-            if (diasOrdenados.length === 0) {
-                selectDia.innerHTML = '<option value="">Sin datos</option>';
-            } else {
-                diasOrdenados.forEach(dia => { selectDia.innerHTML += `<option value="${dia}">${dia}</option>`; });
-            }
+            if (diasOrdenados.length === 0) selectDia.innerHTML = '<option value="">Sin datos</option>';
+            else diasOrdenados.forEach(dia => { selectDia.innerHTML += `<option value="${dia}">${dia}</option>`; });
 
             renderDashboard();
-
-        } catch (error) {
-            console.error("Error:", error);
-            alert("Error conectando con Google Sheets.");
-        }
+        } catch (error) { alert("Error conectando con Google Sheets."); }
     }
 
     function renderDashboard() {
         if(dataAsistencia.length === 0) return;
-
-        if (currentGrupo === 'EJECUTIVO') {
-            renderEjecutivo();
-            return;
-        }
+        if (currentGrupo === 'EJECUTIVO') { renderEjecutivo(); return; }
 
         const selectedDia = document.getElementById('selectDia').value;
         const selectedTipo = document.getElementById('selectTipo').value; 
-        const keyMap = { "ODOO": "odoo", "CLOCK IN": "clockin", "QR": "qr" };
-        const dataKey = keyMap[selectedTipo];
+        const dataKey = { "ODOO": "odoo", "CLOCK IN": "clockin", "QR": "qr" }[selectedTipo];
 
-        let onTimeData = [];
-        let lateData = [];
-        let auditData = [];
+        let onTimeData = [], lateData = [], auditData = [];
 
         dataAsistencia.forEach(row => {
             if(row.dia !== selectedDia) return;
-
-            const rowNombre = row.nombre || "Desconocido";
-            const rowRol = String(row.rol || "").toUpperCase();
-            const rowTeam = row.team || "TEAM 0"; 
+            const rowNombre = row.nombre || "Desconocido", rowRol = String(row.rol || "").toUpperCase(), rowTeam = row.team || "TEAM 0"; 
             
             if (currentGrupo === 'AUDITORIA') {
-                let minOdoo = parseHoraAMinutos(row.odoo || "");
-                let minClock = parseHoraAMinutos(row.clockin || "");
-
-                if (minOdoo !== null && minClock === null) {
-                    auditData.push({ nombre: rowNombre, team: rowTeam, alrt: "Falta en CLOCK IN", sev: "alta", ho: row.odoo, hc: "Vacío" });
-                } else if (minOdoo === null && minClock !== null) {
-                    auditData.push({ nombre: rowNombre, team: rowTeam, alrt: "Falta en ODOO", sev: "alta", ho: "Vacío", hc: row.clockin });
-                } else if (minOdoo !== null && minClock !== null) {
+                let minOdoo = parseHoraAMinutos(row.odoo || ""), minClock = parseHoraAMinutos(row.clockin || "");
+                if (minOdoo !== null && minClock === null) auditData.push({ nombre: rowNombre, team: rowTeam, alrt: "Falta en CLOCK IN", sev: "alta", ho: row.odoo, hc: "Vacío" });
+                else if (minOdoo === null && minClock !== null) auditData.push({ nombre: rowNombre, team: rowTeam, alrt: "Falta en ODOO", sev: "alta", ho: "Vacío", hc: row.clockin });
+                else if (minOdoo !== null && minClock !== null) {
                     let dif = Math.abs(minOdoo - minClock);
-                    if (dif > 15) {
-                        auditData.push({ nombre: rowNombre, team: rowTeam, alrt: `Desfase de ${dif} min`, sev: "media", ho: row.odoo, hc: row.clockin });
-                    }
+                    if (dif > 15) auditData.push({ nombre: rowNombre, team: rowTeam, alrt: `Desfase de ${dif} min`, sev: "media", ho: row.odoo, hc: row.clockin });
                 }
                 return;
             }
 
             const isOperativo = rowRol.includes("TECHNICIAN") || rowRol.includes("TEAM LEADER") || rowRol.includes("TORRERO");
             const isAdmin = rowRol.includes("ADMINISTRATIVO") || rowRol.includes("ASISTENTE") || rowRol.includes("RH");
-
             if(currentGrupo === 'OPERATIVOS' && !isOperativo) return;
             if(currentGrupo === 'ADMIN' && !isAdmin) return;
 
             const timeVal = row[dataKey] || "";
             const isPuntual = checkPuntualidad(timeVal);
-
             if (isPuntual === true) onTimeData.push({ nombre: rowNombre, team: rowTeam, hora: timeVal });
             else if (isPuntual === false) lateData.push({ nombre: rowNombre, team: rowTeam, hora: timeVal });
         });
@@ -412,80 +388,47 @@
     }
 
     function renderEjecutivo() {
-        const selectedTipo = document.getElementById('selectTipo').value; 
-        const keyMap = { "ODOO": "odoo", "CLOCK IN": "clockin", "QR": "qr" };
-        const dataKey = keyMap[selectedTipo];
-
-        let globalOk = 0;
-        let globalLate = 0;
-        let trendData = {}; 
-        let trabajadoresStats = {}; 
+        const dataKey = { "ODOO": "odoo", "CLOCK IN": "clockin", "QR": "qr" }[document.getElementById('selectTipo').value];
+        let globalOk = 0, globalLate = 0, trendData = {}, trabajadoresStats = {}; 
 
         dataAsistencia.forEach(row => {
             const timeVal = row[dataKey] || "";
             const isPuntual = checkPuntualidad(timeVal);
-            
             if (isPuntual === null) return; 
 
-            const nombre = row.nombre || "Desconocido";
-            const dia = row.dia;
-            
+            const nombre = row.nombre || "Desconocido", dia = row.dia;
             if (isPuntual) globalOk++; else globalLate++;
 
             if (!trendData[dia]) trendData[dia] = { ok: 0, tarde: 0 };
             if (isPuntual) trendData[dia].ok++; else trendData[dia].tarde++;
 
-            if (!trabajadoresStats[nombre]) {
-                trabajadoresStats[nombre] = { team: row.team || "TEAM 0", ok: 0, tarde: 0, total: 0 };
-            }
+            if (!trabajadoresStats[nombre]) trabajadoresStats[nombre] = { team: row.team || "TEAM 0", ok: 0, tarde: 0, total: 0 };
             trabajadoresStats[nombre].total++;
-            if (isPuntual) trabajadoresStats[nombre].ok++;
-            else trabajadoresStats[nombre].tarde++;
+            if (isPuntual) trabajadoresStats[nombre].ok++; else trabajadoresStats[nombre].tarde++;
         });
+
         const totalMarks = globalOk + globalLate;
-        const percOk = totalMarks === 0 ? 0 : Math.round((globalOk / totalMarks) * 100);
-        const percLate = totalMarks === 0 ? 0 : Math.round((globalLate / totalMarks) * 100);
-
-        let arrayTrabajadores = Object.keys(trabajadoresStats).map(nombre => {
-            return {
-                nombre: nombre,
-                team: trabajadoresStats[nombre].team,
-                ok: trabajadoresStats[nombre].ok,
-                tarde: trabajadoresStats[nombre].tarde,
-                total: trabajadoresStats[nombre].total,
-                porcentaje: Math.round((trabajadoresStats[nombre].ok / trabajadoresStats[nombre].total) * 100)
-            }
-        });
-
-        const perfectos = arrayTrabajadores.filter(t => t.total > 0 && t.tarde === 0).length;
-
         document.getElementById('execTotalMarks').textContent = totalMarks;
-        document.getElementById('execPercOk').textContent = percOk + '%';
-        document.getElementById('execPercLate').textContent = percLate + '%';
-        document.getElementById('execPerfectos').textContent = perfectos;
+        document.getElementById('execPercOk').textContent = (totalMarks === 0 ? 0 : Math.round((globalOk / totalMarks) * 100)) + '%';
+        document.getElementById('execPercLate').textContent = (totalMarks === 0 ? 0 : Math.round((globalLate / totalMarks) * 100)) + '%';
 
-        let top10Tardones = [...arrayTrabajadores].sort((a, b) => b.tarde - a.tarde).slice(0, 10);
-        const tTop10 = document.getElementById('listTop10');
-        tTop10.innerHTML = '';
-        top10Tardones.forEach(t => {
-            if (t.tarde > 0) {
-                tTop10.innerHTML += `<tr class="hover:bg-bad-100/30 transition border-b border-line/50"><td class="px-4 py-3 font-medium">${t.nombre}</td><td class="px-4 py-3 text-center font-bold text-bad-700">${t.tarde}</td></tr>`;
-            }
-        });
+        let arr = Object.keys(trabajadoresStats).map(nombre => ({
+            nombre: nombre, team: trabajadoresStats[nombre].team,
+            ok: trabajadoresStats[nombre].ok, tarde: trabajadoresStats[nombre].tarde, total: trabajadoresStats[nombre].total,
+            porcentaje: Math.round((trabajadoresStats[nombre].ok / trabajadoresStats[nombre].total) * 100)
+        }));
 
-        let listaGeneral = [...arrayTrabajadores].sort((a, b) => a.nombre.localeCompare(b.nombre));
-        const tResumen = document.getElementById('listResumenPersonal');
-        tResumen.innerHTML = '';
-        listaGeneral.forEach(t => {
-            let colorCls = t.porcentaje < 80 ? 'text-bad-700 bg-bad-100' : 'text-ok-700 bg-ok-100';
-            tResumen.innerHTML += `
-            <tr class="hover:bg-canvas transition border-b border-line/50">
-                <td class="px-5 py-3 font-medium text-[11px]">${t.nombre}</td>
-                <td class="px-5 py-3"><span class="bg-line/50 text-ink-700 px-2 py-1 rounded text-[10px] font-mono border border-line">${t.team}</span></td>
-                <td class="px-5 py-3 text-center text-ok-700 font-bold">${t.ok}</td>
-                <td class="px-5 py-3 text-center text-bad-700 font-bold">${t.tarde}</td>
-                <td class="px-5 py-3 text-center"><span class="px-2 py-1 rounded font-bold ${colorCls}">${t.porcentaje}%</span></td>
-            </tr>`;
+        document.getElementById('execPerfectos').textContent = arr.filter(t => t.total > 0 && t.tarde === 0).length;
+
+        let top10 = [...arr].sort((a, b) => b.tarde - a.tarde).slice(0, 10);
+        const tTop10 = document.getElementById('listTop10'); tTop10.innerHTML = '';
+        top10.forEach(t => { if (t.tarde > 0) tTop10.innerHTML += `<tr class="border-b border-line/50"><td class="px-4 py-3 font-medium">${t.nombre}</td><td class="px-4 py-3 text-center font-bold text-bad-700">${t.tarde}</td></tr>`; });
+
+        let general = [...arr].sort((a, b) => a.nombre.localeCompare(b.nombre));
+        const tRes = document.getElementById('listResumenPersonal'); tRes.innerHTML = '';
+        general.forEach(t => {
+            let cl = t.porcentaje < 80 ? 'text-bad-700' : 'text-ok-700';
+            tRes.innerHTML += `<tr class="border-b border-line/50"><td class="px-5 py-3 font-medium text-[11px]">${t.nombre}</td><td class="px-5 py-3"><span class="bg-line/50 text-ink-700 px-2 py-1 rounded text-[10px] border">${t.team}</span></td><td class="px-5 py-3 text-center text-ok-700 font-bold">${t.ok}</td><td class="px-5 py-3 text-center text-bad-700 font-bold">${t.tarde}</td><td class="px-5 py-3 text-center"><span class="px-2 py-1 rounded font-bold ${cl}">${t.porcentaje}%</span></td></tr>`;
         });
 
         renderGraficosEjecutivos(trendData, globalOk, globalLate);
@@ -493,59 +436,27 @@
 
     function renderGraficosEjecutivos(trendData, globalOk, globalLate) {
         const diasEjeX = Object.keys(trendData).sort((a,b) => parseInt(a) - parseInt(b));
-        const dataTardeX = diasEjeX.map(d => trendData[d].tarde);
-
         if(trendChart) trendChart.destroy();
-        const ctxTrend = document.getElementById('chartTrend').getContext('2d');
-        trendChart = new Chart(ctxTrend, {
+        trendChart = new Chart(document.getElementById('chartTrend').getContext('2d'), {
             type: 'line',
-            data: {
-                labels: diasEjeX,
-                datasets: [{
-                    label: 'Tardanzas',
-                    data: dataTardeX,
-                    borderColor: '#A32E27',
-                    backgroundColor: 'rgba(163, 46, 39, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#A32E27'
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: '#E3E7ED' } },
-                    x: { grid: { display: false } }
-                }
-            }
+            data: { labels: diasEjeX, datasets: [{ label: 'Tardanzas', data: diasEjeX.map(d => trendData[d].tarde), borderColor: '#A32E27', backgroundColor: 'rgba(163, 46, 39, 0.1)', borderWidth: 2, fill: true, tension: 0.4 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
         });
 
-        // 2. Gráfico de Pastel Ejecutivo
         if(execPieChart) execPieChart.destroy();
-        const ctxPieExec = document.getElementById('chartExecPie').getContext('2d');
-        execPieChart = new Chart(ctxPieExec, {
+        execPieChart = new Chart(document.getElementById('chartExecPie').getContext('2d'), {
             type: 'doughnut',
-            data: { 
-                labels: ['A Tiempo', 'Tarde'], 
-                datasets: [{ data: [globalOk, globalLate], backgroundColor: ['#0E6B45', '#A32E27'], borderWidth: 0 }] 
-            },
-            options: { 
-                responsive: true, maintainAspectRatio: false, cutout: '70%', 
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11, family: 'Inter' } } } } 
-            }
+            data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [globalOk, globalLate], backgroundColor: ['#0E6B45', '#A32E27'], borderWidth: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom' } } }
         });
     }
 
-    // Funciones Base UI Normal
     function updateAuditoria(auditData) {
         document.getElementById('countAlertas').textContent = `${auditData.length} Alertas`;
-        const tbody = document.getElementById('listAuditoria');
-        tbody.innerHTML = '';
+        const tbody = document.getElementById('listAuditoria'); tbody.innerHTML = '';
         if(auditData.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="px-5 py-10 text-center text-ink-500">Sin discrepancias.</td></tr>`; return;}
         auditData.forEach(r => {
-            const cls = r.sev === 'alta' ? 'bg-bad-100 text-bad-700' : 'bg-warn-100 text-warn-700';
+            const cls = r.sev === 'alta' ? 'text-bad-700' : 'text-warn-700';
             tbody.innerHTML += `<tr class="border-b border-line/50"><td class="px-5 py-4 font-bold">${r.nombre}</td><td class="px-5 py-4"><span class="bg-line/50 text-[11px] px-2 py-1 rounded border">${r.team}</span></td><td class="px-5 py-4 text-center font-bold">${r.ho}</td><td class="px-5 py-4 text-center font-bold">${r.hc}</td><td class="px-5 py-4"><span class="px-3 py-1 rounded text-[11px] font-bold ${cls}">${r.alrt}</span></td></tr>`;
         });
     }
@@ -559,59 +470,619 @@
         document.getElementById('countLate').textContent = lateData.length;
         document.getElementById('kpiTasa').textContent = (total === 0 ? 0 : Math.round((onTimeData.length / total) * 100)) + '%';
 
-        renderChartsBase(onTimeData.length, lateData.length);
-        const sortByTime = (a, b) => parseHoraAMinutos(a.hora) - parseHoraAMinutos(b.hora);
+        if(myChart) myChart.destroy(); if(myBarChart) myBarChart.destroy();
+        myChart = new Chart(document.getElementById('chartAsistencia').getContext('2d'), { type: 'doughnut', data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [onTimeData.length, lateData.length], backgroundColor: ['#0E6B45', '#A32E27'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom' } } } });
+        myBarChart = new Chart(document.getElementById('chartBarrasAsistencia').getContext('2d'), { type: 'bar', data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [onTimeData.length, lateData.length], backgroundColor: ['#0E6B45', '#A32E27'], borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
 
+        const sortByTime = (a, b) => parseHoraAMinutos(a.hora) - parseHoraAMinutos(b.hora);
         const tOk = document.getElementById('listOk'); tOk.innerHTML = '';
         onTimeData.sort(sortByTime).forEach(r => { tOk.innerHTML += `<tr class="border-b border-line/50"><td class="px-5 py-3 font-medium">${r.nombre}</td><td class="px-5 py-3"><span class="bg-line/50 text-[11px] px-2 py-1">${r.team}</span></td><td class="px-5 py-3 text-right font-bold text-ok-700">${r.hora}</td></tr>`; });
-
         const tLate = document.getElementById('listLate'); tLate.innerHTML = '';
         lateData.sort(sortByTime).forEach(r => { tLate.innerHTML += `<tr class="border-b border-line/50"><td class="px-5 py-3 font-medium">${r.nombre}</td><td class="px-5 py-3"><span class="bg-line/50 text-[11px] px-2 py-1">${r.team}</span></td><td class="px-5 py-3 text-right font-bold text-bad-700">${r.hora}</td></tr>`; });
     }
 
-    function renderChartsBase(ok, late) {
-        if(myChart) myChart.destroy(); if(myBarChart) myBarChart.destroy();
-        const ctxPie = document.getElementById('chartAsistencia').getContext('2d');
-        const ctxBar = document.getElementById('chartBarrasAsistencia').getContext('2d');
-        if (ok === 0 && late === 0) {
-            myChart = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['Sin datos'], datasets: [{ data: [1], backgroundColor: ['#E3E7ED'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '75%', animation: false } });
-            myBarChart = new Chart(ctxBar, { type: 'bar', data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [0, 0], backgroundColor: ['#E3E7ED', '#E3E7ED'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false } } } });
-        } else {
-            myChart = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [ok, late], backgroundColor: ['#0E6B45', '#A32E27'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12, family: 'Inter' } } } } } });
-            myBarChart = new Chart(ctxBar, { type: 'bar', data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [ok, late], backgroundColor: ['#0E6B45', '#A32E27'], borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } });
+    // 🌟 MAGIA DEL PDF ESTRICTO 🌟
+    // ============================================================
+    // EXPORTACIÓN PDF PROFESIONAL PARA AUDITORÍA
+    // Se dibuja directamente con jsPDF + AutoTable.
+    // No se convierte el dashboard completo en una captura gigante.
+    // ============================================================
+
+    function exportToPDF() {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            alert("No se pudo cargar el motor PDF. Verifica tu conexión a Internet.");
+            return;
         }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+            orientation: "landscape",
+            unit: "mm",
+            format: "a4",
+            compress: true
+        });
+
+        const grupo = currentGrupo;
+        const dia = document.getElementById("selectDia")?.value || "Mensual";
+        const tipo = document.getElementById("selectTipo")?.value || "ODOO";
+
+        doc.setProperties({
+            title: `Reporte de Asistencia - ${grupo}`,
+            subject: `Reporte de asistencia - ${dia}`,
+            author: "Control de Asistencia",
+            creator: "Control de Asistencia"
+        });
+
+        if (grupo === "EJECUTIVO") {
+            crearPDFEjecutivo(doc, tipo);
+        } else if (grupo === "AUDITORIA") {
+            crearPDFAuditoria(doc, dia);
+        } else {
+            crearPDFDiario(doc, grupo, dia, tipo);
+        }
+
+        agregarNumeracionPDF(doc);
+
+        const nombre = `Reporte_Asistencia_${grupo}_${dia === "Mensual" ? "Mensual" : "Dia_" + dia}.pdf`;
+        doc.save(nombre);
+    }
+
+    function cPDF() {
+        return {
+            navy: [11, 34, 69],
+            ink: [27, 36, 48],
+            gray: [100, 112, 135],
+            line: [227, 231, 237],
+            green: [14, 107, 69],
+            red: [163, 46, 39],
+            purple: [107, 33, 168],
+            white: [255, 255, 255]
+        };
+    }
+
+    function txtPDF(doc, text, x, y, size, color, style = "normal", align = "left") {
+        doc.setFont("helvetica", style);
+        doc.setFontSize(size);
+        doc.setTextColor(...color);
+        doc.text(String(text ?? ""), x, y, { align });
+    }
+
+    function encabezadoPDF(doc, titulo, subtitulo) {
+        const c = cPDF();
+        const w = doc.internal.pageSize.getWidth();
+
+        txtPDF(doc, "REPORTE DE ASISTENCIA", w / 2, 12, 16, c.navy, "bold", "center");
+        txtPDF(doc, subtitulo || titulo, w / 2, 19, 8.5, c.gray, "normal", "center");
+
+        doc.setDrawColor(...c.line);
+        doc.setLineWidth(0.4);
+        doc.line(12, 24, w - 12, 24);
+    }
+
+    function tarjetaPDF(doc, x, y, w, h, etiqueta, valor, color) {
+        const c = cPDF();
+
+        doc.setFillColor(...c.white);
+        doc.setDrawColor(...c.line);
+        doc.roundedRect(x, y, w, h, 2, 2, "FD");
+
+        doc.setFillColor(...color);
+        doc.rect(x, y + h - 1.3, w, 1.3, "F");
+
+        txtPDF(doc, etiqueta, x + 4, y + 7, 6.5, c.gray, "bold");
+        txtPDF(doc, valor, x + 4, y + 18, 17, color, "bold");
+    }
+
+    function barraPDF(doc, x, y, w, titulo, color) {
+        const c = cPDF();
+
+        doc.setFillColor(...color);
+        doc.roundedRect(x, y, w, 8, 1.2, 1.2, "F");
+        txtPDF(doc, titulo, x + 4, y + 5.4, 8, c.white, "bold");
+    }
+
+    function canvasPNG(id) {
+        const canvas = document.getElementById(id);
+        if (!canvas) return null;
+
+        try {
+            return canvas.toDataURL("image/png", 1);
+        } catch (e) {
+            console.warn("Canvas no disponible:", id, e);
+            return null;
+        }
+    }
+
+    function insertarCanvas(doc, id, x, y, w, h) {
+        const img = canvasPNG(id);
+        if (!img) return;
+
+        try {
+            doc.addImage(img, "PNG", x, y, w, h, undefined, "FAST");
+        } catch (e) {
+            console.warn("No se pudo insertar el gráfico:", id, e);
+        }
+    }
+
+    // ------------------------------------------------------------
+    // DIARIO: OPERATIVOS / ADMIN
+    // ------------------------------------------------------------
+    function crearPDFDiario(doc, grupo, dia, tipo) {
+        const c = cPDF();
+
+        const dataKey = {
+            "ODOO": "odoo",
+            "CLOCK IN": "clockin",
+            "QR": "qr"
+        }[tipo];
+
+        const onTime = [];
+        const late = [];
+
+        dataAsistencia.forEach(row => {
+            if (String(row.dia) !== String(dia)) return;
+
+            const rol = String(row.rol || "").toUpperCase();
+            const esOperativo =
+                rol.includes("TECHNICIAN") ||
+                rol.includes("TEAM LEADER") ||
+                rol.includes("TORRERO");
+
+            const esAdmin =
+                rol.includes("ADMINISTRATIVO") ||
+                rol.includes("ASISTENTE") ||
+                rol.includes("RH");
+
+            if (grupo === "OPERATIVOS" && !esOperativo) return;
+            if (grupo === "ADMIN" && !esAdmin) return;
+
+            const hora = row[dataKey] || "";
+            const puntual = checkPuntualidad(hora);
+            const item = {
+                nombre: row.nombre || "Desconocido",
+                team: row.team || "TEAM 0",
+                hora
+            };
+
+            if (puntual === true) onTime.push(item);
+            if (puntual === false) late.push(item);
+        });
+
+        const sorter = (a, b) => parseHoraAMinutos(a.hora) - parseHoraAMinutos(b.hora);
+        onTime.sort(sorter);
+        late.sort(sorter);
+
+        const total = onTime.length + late.length;
+        const tasa = total ? Math.round(onTime.length / total * 100) : 0;
+
+        // Página 1
+        encabezadoPDF(
+            doc,
+            "Reporte diario",
+            `Grupo: ${grupo} | Día: ${dia} | Fuente: ${tipo}`
+        );
+
+        const gap = 5;
+        const w = (273 - gap * 3) / 4;
+
+        tarjetaPDF(doc, 12, 31, w, 24, "TOTAL MARCACIONES", total, c.navy);
+        tarjetaPDF(doc, 12 + w + gap, 31, w, 24, "A TIEMPO (≤ 8:10)", onTime.length, c.green);
+        tarjetaPDF(doc, 12 + (w + gap) * 2, 31, w, 24, "TARDANZAS (> 8:10)", late.length, c.red);
+        tarjetaPDF(doc, 12 + (w + gap) * 3, 31, w, 24, "TASA DE PUNTUALIDAD", `${tasa}%`, c.navy);
+
+        barraPDF(doc, 12, 62, 132, "PORCENTAJE DE ASISTENCIA", c.navy);
+        insertarCanvas(doc, "chartAsistencia", 25, 72, 106, 70);
+
+        barraPDF(doc, 150, 62, 135, "COMPARATIVA", c.navy);
+        insertarCanvas(doc, "chartBarrasAsistencia", 158, 72, 120, 70);
+
+        // Página 2
+        doc.addPage();
+        encabezadoPDF(
+            doc,
+            "Detalle de asistencia",
+            `Grupo: ${grupo} | Día: ${dia} | Fuente: ${tipo}`
+        );
+
+        doc.autoTable({
+            startY: 31,
+            margin: { left: 12 },
+            tableWidth: 128,
+            head: [["TRABAJADOR", "TEAM", "HORA"]],
+            body: onTime.map(r => [r.nombre, r.team, r.hora]),
+            theme: "grid",
+            headStyles: {
+                fillColor: c.green,
+                textColor: c.white,
+                fontStyle: "bold",
+                fontSize: 7
+            },
+            bodyStyles: {
+                fontSize: 7,
+                textColor: c.ink,
+                cellPadding: 2.4
+            },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            columnStyles: {
+                0: { cellWidth: 67 },
+                1: { cellWidth: 38 },
+                2: { cellWidth: 23, halign: "right", fontStyle: "bold" }
+            }
+        });
+
+        doc.autoTable({
+            startY: 31,
+            margin: { left: 154 },
+            tableWidth: 127,
+            head: [["TRABAJADOR", "TEAM", "HORA"]],
+            body: late.map(r => [r.nombre, r.team, r.hora]),
+            theme: "grid",
+            headStyles: {
+                fillColor: c.red,
+                textColor: c.white,
+                fontStyle: "bold",
+                fontSize: 7
+            },
+            bodyStyles: {
+                fontSize: 7,
+                textColor: c.ink,
+                cellPadding: 2.4
+            },
+            alternateRowStyles: { fillColor: [255, 248, 248] },
+            columnStyles: {
+                0: { cellWidth: 66 },
+                1: { cellWidth: 37 },
+                2: { cellWidth: 24, halign: "right", fontStyle: "bold", textColor: c.red }
+            }
+        });
+    }
+
+    // ------------------------------------------------------------
+    // AUDITORÍA
+    // ------------------------------------------------------------
+    function crearPDFAuditoria(doc, dia) {
+        const c = cPDF();
+        const audit = [];
+
+        dataAsistencia.forEach(row => {
+            if (String(row.dia) !== String(dia)) return;
+
+            const odoo = parseHoraAMinutos(row.odoo || "");
+            const clock = parseHoraAMinutos(row.clockin || "");
+
+            if (odoo !== null && clock === null) {
+                audit.push([
+                    row.nombre || "Desconocido",
+                    row.team || "TEAM 0",
+                    row.odoo,
+                    "Vacío",
+                    "Falta en CLOCK IN"
+                ]);
+            } else if (odoo === null && clock !== null) {
+                audit.push([
+                    row.nombre || "Desconocido",
+                    row.team || "TEAM 0",
+                    "Vacío",
+                    row.clockin,
+                    "Falta en ODOO"
+                ]);
+            } else if (odoo !== null && clock !== null) {
+                const dif = Math.abs(odoo - clock);
+                if (dif > 15) {
+                    audit.push([
+                        row.nombre || "Desconocido",
+                        row.team || "TEAM 0",
+                        row.odoo,
+                        row.clockin,
+                        `Desfase de ${dif} min`
+                    ]);
+                }
+            }
+        });
+
+        encabezadoPDF(
+            doc,
+            "Auditoría de asistencia",
+            `Discrepancias detectadas | Día: ${dia}`
+        );
+
+        tarjetaPDF(doc, 12, 31, 65, 24, "ALERTAS DETECTADAS", audit.length, c.red);
+
+        barraPDF(doc, 12, 65, 273, "DETALLE DE DISCREPANCIAS", c.navy);
+
+        doc.autoTable({
+            startY: 77,
+            margin: { left: 12, right: 12 },
+            head: [["TRABAJADOR", "TEAM", "ODOO", "CLOCK IN", "MOTIVO DE ALERTA"]],
+            body: audit,
+            theme: "grid",
+            showHead: "everyPage",
+            headStyles: {
+                fillColor: c.navy,
+                textColor: c.white,
+                fontStyle: "bold",
+                fontSize: 7.2
+            },
+            bodyStyles: {
+                fontSize: 7.2,
+                textColor: c.ink,
+                cellPadding: 2.8
+            },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            columnStyles: {
+                0: { cellWidth: 67 },
+                1: { cellWidth: 43 },
+                2: { cellWidth: 31, halign: "center" },
+                3: { cellWidth: 31, halign: "center" },
+                4: { cellWidth: 101 }
+            }
+        });
+
+        if (audit.length === 0) {
+            txtPDF(
+                doc,
+                "No se detectaron discrepancias para el día seleccionado.",
+                148,
+                46,
+                9,
+                c.green,
+                "bold",
+                "center"
+            );
+        }
+    }
+
+    // ------------------------------------------------------------
+    // EJECUTIVO
+    // ------------------------------------------------------------
+    function crearPDFEjecutivo(doc, tipo) {
+        const c = cPDF();
+
+        const dataKey = {
+            "ODOO": "odoo",
+            "CLOCK IN": "clockin",
+            "QR": "qr"
+        }[tipo];
+
+        let ok = 0;
+        let tarde = 0;
+        const tendencia = {};
+        const trabajadores = {};
+
+        dataAsistencia.forEach(row => {
+            const hora = row[dataKey] || "";
+            const puntual = checkPuntualidad(hora);
+            if (puntual === null) return;
+
+            const nombre = row.nombre || "Desconocido";
+            const dia = row.dia;
+
+            if (puntual) ok++;
+            else tarde++;
+
+            if (!tendencia[dia]) tendencia[dia] = { ok: 0, tarde: 0 };
+            if (puntual) tendencia[dia].ok++;
+            else tendencia[dia].tarde++;
+
+            if (!trabajadores[nombre]) {
+                trabajadores[nombre] = {
+                    team: row.team || "TEAM 0",
+                    ok: 0,
+                    tarde: 0,
+                    total: 0
+                };
+            }
+
+            trabajadores[nombre].total++;
+            if (puntual) trabajadores[nombre].ok++;
+            else trabajadores[nombre].tarde++;
+        });
+
+        const total = ok + tarde;
+        const pOk = total ? Math.round(ok / total * 100) : 0;
+        const pTarde = total ? Math.round(tarde / total * 100) : 0;
+
+        const arr = Object.keys(trabajadores).map(nombre => {
+            const t = trabajadores[nombre];
+            return {
+                nombre,
+                team: t.team,
+                ok: t.ok,
+                tarde: t.tarde,
+                total: t.total,
+                porcentaje: Math.round(t.ok / t.total * 100)
+            };
+        });
+
+        const perfectos = arr.filter(t => t.tarde === 0).length;
+        const top10 = [...arr].sort((a, b) => b.tarde - a.tarde).slice(0, 10);
+
+        // Página 1
+        encabezadoPDF(
+            doc,
+            "Reporte ejecutivo mensual",
+            `Grupo: EJECUTIVO | Periodo mensual | Fuente: ${tipo}`
+        );
+
+        const gap = 5;
+        const w = (273 - gap * 3) / 4;
+
+        tarjetaPDF(doc, 12, 31, w, 24, "TOTAL MARCACIONES MES", total, c.navy);
+        tarjetaPDF(doc, 12 + w + gap, 31, w, 24, "% PUNTUALIDAD GLOBAL", `${pOk}%`, c.green);
+        tarjetaPDF(doc, 12 + (w + gap) * 2, 31, w, 24, "% TARDANZAS GLOBAL", `${pTarde}%`, c.red);
+        tarjetaPDF(doc, 12 + (w + gap) * 3, 31, w, 24, "ASISTENCIA PERFECTA", perfectos, c.purple);
+
+        barraPDF(doc, 12, 62, 273, "TENDENCIA DIARIA DE TARDANZAS", c.navy);
+        insertarCanvas(doc, "chartTrend", 20, 72, 257, 70);
+
+        txtPDF(
+            doc,
+            `Días analizados: ${Object.keys(tendencia).length}`,
+            20,
+            149,
+            7.5,
+            c.gray
+        );
+
+        // Página 2
+        doc.addPage();
+        encabezadoPDF(
+            doc,
+            "Indicadores destacados",
+            `Top 10 tardanzas y proporción mensual | Fuente: ${tipo}`
+        );
+
+        barraPDF(doc, 12, 31, 130, "TOP 10 TARDANZAS", c.red);
+
+        doc.autoTable({
+            startY: 40,
+            margin: { left: 12 },
+            tableWidth: 130,
+            head: [["TRABAJADOR", "TARDANZAS"]],
+            body: top10.filter(t => t.tarde > 0).map(t => [t.nombre, t.tarde]),
+            theme: "grid",
+            headStyles: {
+                fillColor: c.red,
+                textColor: c.white,
+                fontSize: 7.2,
+                fontStyle: "bold"
+            },
+            bodyStyles: {
+                fontSize: 7.2,
+                textColor: c.ink,
+                cellPadding: 2.7
+            },
+            alternateRowStyles: { fillColor: [255, 248, 248] },
+            columnStyles: {
+                0: { cellWidth: 95 },
+                1: { cellWidth: 35, halign: "center", fontStyle: "bold", textColor: c.red }
+            }
+        });
+
+        barraPDF(doc, 150, 31, 135, "PROPORCIÓN MENSUAL", c.navy);
+        insertarCanvas(doc, "chartExecPie", 160, 43, 115, 77);
+
+        txtPDF(doc, "A tiempo", 170, 129, 8, c.green, "bold");
+        txtPDF(doc, `${ok} marcaciones (${pOk}%)`, 170, 135, 8, c.gray);
+
+        txtPDF(doc, "Tarde", 170, 143, 8, c.red, "bold");
+        txtPDF(doc, `${tarde} marcaciones (${pTarde}%)`, 170, 149, 8, c.gray);
+
+        // Página 3 en adelante: tabla completa.
+        doc.addPage();
+        encabezadoPDF(
+            doc,
+            "Ficha individual de asistencia mensual",
+            `Detalle por trabajador | Fuente: ${tipo}`
+        );
+
+        const general = [...arr].sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        doc.autoTable({
+            startY: 31,
+            margin: { left: 12, right: 12, top: 31, bottom: 12 },
+            head: [["TRABAJADOR", "TEAM", "A TIEMPO", "TARDANZAS", "% PUNTUALIDAD"]],
+            body: general.map(t => [
+                t.nombre,
+                t.team,
+                t.ok,
+                t.tarde,
+                `${t.porcentaje}%`
+            ]),
+            theme: "grid",
+            showHead: "everyPage",
+            headStyles: {
+                fillColor: c.navy,
+                textColor: c.white,
+                fontSize: 7.2,
+                fontStyle: "bold",
+                halign: "center"
+            },
+            bodyStyles: {
+                fontSize: 7.1,
+                textColor: c.ink,
+                cellPadding: 2.7
+            },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            columnStyles: {
+                0: { cellWidth: 95 },
+                1: { cellWidth: 45 },
+                2: { cellWidth: 35, halign: "center", textColor: c.green, fontStyle: "bold" },
+                3: { cellWidth: 35, halign: "center", textColor: c.red, fontStyle: "bold" },
+                4: { cellWidth: 45, halign: "center", fontStyle: "bold" }
+            },
+            didParseCell: function(data) {
+                if (data.section === "body" && data.column.index === 4) {
+                    const value = parseInt(String(data.cell.raw).replace("%", "")) || 0;
+                    data.cell.styles.textColor = value < 80 ? c.red : c.green;
+                }
+            }
+        });
+    }
+
+    function agregarNumeracionPDF(doc) {
+        const c = cPDF();
+        const total = doc.internal.getNumberOfPages();
+        const w = doc.internal.pageSize.getWidth();
+        const h = doc.internal.pageSize.getHeight();
+
+        for (let i = 1; i <= total; i++) {
+            doc.setPage(i);
+
+            doc.setDrawColor(...c.line);
+            doc.setLineWidth(0.3);
+            doc.line(12, h - 9, w - 12, h - 9);
+
+            txtPDF(doc, "Control de Asistencia", 12, h - 4, 7, c.gray);
+            txtPDF(doc, `Página ${i} de ${total}`, w - 12, h - 4, 7, c.gray, "normal", "right");
+        }
+    }
+
+    function exportToExcel() {
+        let activeViewId = '';
+        if (currentGrupo === 'AUDITORIA') activeViewId = 'vista-auditoria';
+        else if (currentGrupo === 'EJECUTIVO') activeViewId = 'vista-ejecutivo';
+        else activeViewId = 'vista-dashboard';
+
+        let csv = [];
+        let filas = document.querySelectorAll(`#${activeViewId} table tr`);
+        if(filas.length === 0) { alert("No hay datos en la tabla para exportar."); return; }
+
+        for (let i = 0; i < filas.length; i++) {
+            let fila = [], columnas = filas[i].querySelectorAll('td, th');
+            for (let j = 0; j < columnas.length; j++) {
+                let texto = columnas[j].innerText.replace(/"/g, '""').replace(/(\r\n|\n|\r)/gm, "");
+                fila.push('"' + texto + '"');
+            }
+            csv.push(fila.join(';'));
+        }
+
+        let csvString = csv.join('\n');
+        let blob = new Blob(["\uFEFF" + csvString], { type: 'text/csv;charset=utf-8;' });
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement("a");
+        a.href = url;
+        let filtroNombre = currentGrupo === 'EJECUTIVO' ? 'Mensual' : (document.getElementById('selectDia').value || 'Mensual');
+        a.download = `Asistencia_${currentGrupo}_${filtroNombre}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 
     window.onload = () => { loadDataFromAPI(); };
 </script>
+
+<!-- Script Anti-Inspección -->
 <script>
-    document.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-    });
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'F12' || e.keyCode === 123) {
-            e.preventDefault();
-            return false;
-        }
-        if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73)) {
-            e.preventDefault();
-            return false;
-        }
-        if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74)) {
-            e.preventDefault();
-            return false;
-        }
-        if (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)) {
-            e.preventDefault();
-            return false;
-        }
+        if (e.key === 'F12' || e.keyCode === 123) { e.preventDefault(); return false; }
+        if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73)) { e.preventDefault(); return false; }
+        if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74)) { e.preventDefault(); return false; }
+        if (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)) { e.preventDefault(); return false; }
     });
-    document.addEventListener('selectstart', function(e) {
-        e.preventDefault();
-    });
-    document.addEventListener('dragstart', function(e) {
-        e.preventDefault();
-    });
+    document.addEventListener('selectstart', function(e) { e.preventDefault(); });
+    document.addEventListener('dragstart', function(e) { e.preventDefault(); });
 </script>
 </body>
 </html>
