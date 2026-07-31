@@ -7,9 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-<!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
-<!-- Chart.js para Gráficos -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
@@ -22,6 +20,7 @@
                     line: '#E3E7ED', canvas: '#F4F6F9',
                     ok: { 700: '#0E6B45', 100: '#E4F4EC' },
                     bad: { 700: '#A32E27', 100: '#FBEAE9' },
+                    warn: { 700: '#B45309', 100: '#FEF3C7' }
                 },
                 fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['IBM Plex Mono', 'monospace'] }
             }
@@ -34,6 +33,7 @@
     ::-webkit-scrollbar-track { background: #F4F6F9; }
     ::-webkit-scrollbar-thumb { background: #C7CDD8; border-radius: 4px; }
     .tab-active { border-bottom: 3px solid #0B2245; color: #0B2245; font-weight: 700; }
+    .tab-active-warn { border-bottom: 3px solid #B45309; color: #B45309; font-weight: 700; }
     .tab-inactive { color: #647087; font-weight: 500; }
     .tab-inactive:hover { color: #1B2430; }
 </style>
@@ -50,13 +50,11 @@
             </svg>
             <div class="leading-tight">
                 <div class="font-bold text-[15px] tracking-wide">CONTROL DE ASISTENCIA</div>
-                <div class="text-[11px] text-white/50 tracking-wide">Análisis diario de marcaciones</div>
+                <div class="text-[11px] text-white/50 tracking-wide">Análisis diario de marcaciones y Auditoría</div>
             </div>
         </div>
         <div class="flex gap-4">
-            <!-- Botón para volver al Dashboard Principal -->
             <a href="dashboard_rrhh.html" class="text-[12px] font-semibold text-white/80 hover:text-white transition flex items-center gap-1">
-                ← Volver a Data Maestra
             </a>
         </div>
     </div>
@@ -64,11 +62,11 @@
 
 <main class="max-w-[1400px] mx-auto px-6 py-8 flex-grow w-full">
 
-    <!-- Controles Superiores -->
     <div class="mb-6 flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-4 rounded-xl border border-line shadow-sm">
-        <div class="flex gap-6 border-b border-line w-full md:w-auto">
-            <button id="tab-operativos" onclick="setGrupo('OPERATIVOS')" class="pb-3 px-2 tab-active text-[14px] transition">Técnicos & Team Leaders</button>
-            <button id="tab-admin" onclick="setGrupo('ADMIN')" class="pb-3 px-2 tab-inactive text-[14px] transition">Administrativos</button>
+        <div class="flex gap-6 border-b border-line w-full md:w-auto overflow-x-auto">
+            <button id="tab-operativos" onclick="setGrupo('OPERATIVOS')" class="pb-3 px-2 tab-active text-[14px] transition whitespace-nowrap">Técnicos & Team Leaders</button>
+            <button id="tab-admin" onclick="setGrupo('ADMIN')" class="pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap">Administrativos</button>
+            <button id="tab-auditoria" onclick="setGrupo('AUDITORIA')" class="pb-3 px-2 tab-inactive text-[14px] transition flex items-center gap-2 whitespace-nowrap">Auditoría: Odoo vs Clock In</button>
         </div>
         
         <div class="flex gap-3 w-full md:w-auto">
@@ -79,181 +77,196 @@
                 <option value="">Cargando días...</option>
             </select>
             <select id="selectTipo" onchange="renderDashboard()" class="border border-line rounded-lg px-4 py-2 text-[13px] focus:outline-none focus:border-navy-900 bg-white font-medium shadow-sm">
-                <option value="QR">Marcación QR</option>
-                <option value="CLOCK IN">CLOCK IN</option>
                 <option value="ODOO">ODOO</option>
+                <option value="CLOCK IN">CLOCK IN</option>
+                <option value="QR">Marcación QR</option>
             </select>
         </div>
     </div>
 
-    <!-- Panel de Analítica Superior -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        
-        <!-- KPIs -->
-        <div class="grid grid-cols-2 gap-4 h-full">
-            <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
-                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Total Marcaciones</div>
-                <div class="text-4xl font-extrabold text-navy-900" id="kpiTotal">0</div>
+    <div id="vista-dashboard" class="block">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div class="grid grid-cols-2 gap-4 h-full">
+                <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
+                    <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Total Marcaciones</div>
+                    <div class="text-4xl font-extrabold text-navy-900" id="kpiTotal">0</div>
+                </div>
+                <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
+                    <div class="absolute left-0 top-0 h-full w-1.5 bg-ok-700"></div>
+                    <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">A Tiempo (≤ 8:10)</div>
+                    <div class="text-4xl font-extrabold text-ok-700" id="kpiOk">0</div>
+                </div>
+                <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
+                    <div class="absolute left-0 top-0 h-full w-1.5 bg-bad-700"></div>
+                    <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Tarde (> 8:10)</div>
+                    <div class="text-4xl font-extrabold text-bad-700" id="kpiLate">0</div>
+                </div>
+                <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
+                    <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Tasa de Puntualidad</div>
+                    <div class="text-4xl font-extrabold text-navy-900" id="kpiTasa">0%</div>
+                </div>
             </div>
-            <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
-                <div class="absolute left-0 top-0 h-full w-1.5 bg-ok-700"></div>
-                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">A Tiempo (≤ 8:10)</div>
-                <div class="text-4xl font-extrabold text-ok-700" id="kpiOk">0</div>
+
+            <div class="bg-white rounded-xl border border-line p-5 flex flex-col items-center justify-center shadow-sm h-64 lg:h-auto">
+                <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-2 w-full text-center">Porcentaje de Asistencia</h4>
+                <div class="relative w-full h-full flex justify-center max-h-[180px]">
+                    <canvas id="chartAsistencia"></canvas>
+                </div>
             </div>
-            <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
-                <div class="absolute left-0 top-0 h-full w-1.5 bg-bad-700"></div>
-                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Tarde (> 8:10)</div>
-                <div class="text-4xl font-extrabold text-bad-700" id="kpiLate">0</div>
-            </div>
-            <div class="bg-white rounded-xl border border-line p-5 relative overflow-hidden shadow-sm flex flex-col justify-center">
-                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Tasa de Puntualidad</div>
-                <div class="text-4xl font-extrabold text-navy-900" id="kpiTasa">0%</div>
+
+            <div class="bg-white rounded-xl border border-line p-5 flex flex-col items-center justify-center shadow-sm h-64 lg:h-auto">
+                <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-2 w-full text-center">Comparativa</h4>
+                <div class="relative w-full h-full flex justify-center max-h-[180px]">
+                    <canvas id="chartBarrasAsistencia"></canvas>
+                </div>
             </div>
         </div>
 
-        <!-- Gráfico Doughnut -->
-        <div class="bg-white rounded-xl border border-line p-5 flex flex-col items-center justify-center shadow-sm h-64 lg:h-auto">
-            <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-2 w-full text-center">Porcentaje de Asistencia</h4>
-            <div class="relative w-full h-full flex justify-center max-h-[180px]">
-                <canvas id="chartAsistencia"></canvas>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
+                <div class="bg-ok-100 border-b border-ok-700/20 px-5 py-3 flex justify-between items-center shrink-0">
+                    <h3 class="font-bold text-ok-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-ok-700"></div> A Tiempo (≤ 8:10)
+                    </h3>
+                    <span class="text-[12px] font-bold text-ok-700 bg-white px-2 py-1 rounded" id="countOk">0</span>
+                </div>
+                <div class="overflow-y-auto flex-grow p-0">
+                    <table class="w-full text-left">
+                        <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold shadow-sm">
+                            <tr>
+                                <th class="px-5 py-3">Trabajador</th>
+                                <th class="px-5 py-3">Team</th>
+                                <th class="px-5 py-3">Rol</th>
+                                <th class="px-5 py-3 text-right">Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listOk" class="divide-y divide-line text-[13px] font-medium text-navy-900">
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
 
-        <!-- Gráfico de Barras -->
-        <div class="bg-white rounded-xl border border-line p-5 flex flex-col items-center justify-center shadow-sm h-64 lg:h-auto">
-            <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-2 w-full text-center">Comparativa (A Tiempo vs Tarde)</h4>
-            <div class="relative w-full h-full flex justify-center max-h-[180px]">
-                <canvas id="chartBarrasAsistencia"></canvas>
+            <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
+                <div class="bg-bad-100 border-b border-bad-700/20 px-5 py-3 flex justify-between items-center shrink-0">
+                    <h3 class="font-bold text-bad-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-bad-700"></div> Tarde (> 8:10)
+                    </h3>
+                    <span class="text-[12px] font-bold text-bad-700 bg-white px-2 py-1 rounded" id="countLate">0</span>
+                </div>
+                <div class="overflow-y-auto flex-grow p-0">
+                    <table class="w-full text-left">
+                        <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold shadow-sm">
+                            <tr>
+                                <th class="px-5 py-3">Trabajador</th>
+                                <th class="px-5 py-3">Team</th>
+                                <th class="px-5 py-3">Rol</th>
+                                <th class="px-5 py-3 text-right">Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listLate" class="divide-y divide-line text-[13px] font-medium text-navy-900">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Listas Detalladas (A Tiempo vs Tarde) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        <!-- Lista: A Tiempo -->
-        <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
-            <div class="bg-ok-100 border-b border-ok-700/20 px-5 py-3 flex justify-between items-center shrink-0">
-                <h3 class="font-bold text-ok-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
-                    <div class="w-2 h-2 rounded-full bg-ok-700"></div> A Tiempo (≤ 8:10)
-                </h3>
-                <span class="text-[12px] font-bold text-ok-700 bg-white px-2 py-1 rounded" id="countOk">0</span>
+    <div id="vista-auditoria" class="hidden">
+        <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col">
+            <div class="bg-navy-950 px-5 py-4 flex justify-between items-center shrink-0">
+                <h3 class="font-bold text-white text-[14px] uppercase tracking-wide">Discrepancias Detectadas</h3>
+                <span class="text-[12px] font-bold text-white bg-bad-700 px-3 py-1 rounded" id="countAlertas">0 Alertas</span>
             </div>
-            <div class="overflow-y-auto flex-grow p-0">
+            <div class="overflow-x-auto">
                 <table class="w-full text-left">
-                    <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold shadow-sm">
+                    <thead class="bg-canvas border-b border-line text-[11px] text-ink-500 uppercase font-semibold">
                         <tr>
-                            <th class="px-5 py-3">Trabajador</th>
-                            <th class="px-5 py-3">Rol</th>
-                            <th class="px-5 py-3 text-right">Hora</th>
+                            <th class="px-5 py-4">Trabajador</th>
+                            <th class="px-5 py-4">Team</th>
+                            <th class="px-5 py-4 text-center">Odoo</th>
+                            <th class="px-5 py-4 text-center">Clock In</th>
+                            <th class="px-5 py-4">Motivo de Alerta</th>
                         </tr>
                     </thead>
-                    <tbody id="listOk" class="divide-y divide-line text-[13px] font-medium text-navy-900">
-                        <!-- Llenado por JS -->
+                    <tbody id="listAuditoria" class="divide-y divide-line text-[13px] font-medium text-navy-900">
                     </tbody>
                 </table>
             </div>
         </div>
-
-        <!-- Lista: Tarde -->
-        <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
-            <div class="bg-bad-100 border-b border-bad-700/20 px-5 py-3 flex justify-between items-center shrink-0">
-                <h3 class="font-bold text-bad-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
-                    <div class="w-2 h-2 rounded-full bg-bad-700"></div> Tarde (> 8:10)
-                </h3>
-                <span class="text-[12px] font-bold text-bad-700 bg-white px-2 py-1 rounded" id="countLate">0</span>
-            </div>
-            <div class="overflow-y-auto flex-grow p-0">
-                <table class="w-full text-left">
-                    <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold shadow-sm">
-                        <tr>
-                            <th class="px-5 py-3">Trabajador</th>
-                            <th class="px-5 py-3">Rol</th>
-                            <th class="px-5 py-3 text-right">Hora</th>
-                        </tr>
-                    </thead>
-                    <tbody id="listLate" class="divide-y divide-line text-[13px] font-medium text-navy-900">
-                        <!-- Llenado por JS -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
     </div>
+
 </main>
 
 <script>
-    // 🚨 AQUÍ ESTÁ TU NUEVA URL PERFECTAMENTE CONFIGURADA
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxNRTuSYdNJ9AwY12PJ9JeR4ExzbVfMI-bzAbeT4s8BqSrZ4zBMoR5ZxJ0vXkzOG08/exec?modo=asistencia'; 
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwd6KsshSdXXOj4ZofsH-oy2DI5q5iC1j7F_zDmV6_WAqjdS3AdNH-JYJsK-347GaK-/exec?modo=asistencia'; 
     
     let dataAsistencia = [];
-    let currentGrupo = 'OPERATIVOS'; // 'OPERATIVOS' o 'ADMIN'
-    
-    // Variables para los gráficos
+    let currentGrupo = 'OPERATIVOS'; 
     let myChart = null;
     let myBarChart = null;
 
-    // MOTOR LÓGICO DE LA HORA
-    function checkPuntualidad(timeStr) {
-        if (!timeStr || String(timeStr).trim() === '') return null;
+    function parseHoraAMinutos(timeStr) {
+        if (!timeStr || String(timeStr).trim() === '' || timeStr === 'F' || timeStr === 'QR' || timeStr === 'E') return null;
         let parts = String(timeStr).split(':');
         if (parts.length !== 2) return null;
-
         let hours = parseInt(parts[0], 10);
         let mins = parseInt(parts[1], 10);
         if(isNaN(hours) || isNaN(mins)) return null;
+        return (hours * 60) + mins;
+    }
 
-        let totalMins = (hours * 60) + mins;
-        let limitMins = (8 * 60) + 10; // 08:10 AM son 490 minutos
-
+    function checkPuntualidad(timeStr) {
+        let totalMins = parseHoraAMinutos(timeStr);
+        if (totalMins === null) return null;
+        let limitMins = (8 * 60) + 10; // Límite: 08:10 AM
         return totalMins <= limitMins; 
     }
 
     function setGrupo(grupo) {
         currentGrupo = grupo;
-        document.getElementById('tab-operativos').className = grupo === 'OPERATIVOS' ? 'pb-3 px-2 tab-active text-[14px] transition' : 'pb-3 px-2 tab-inactive text-[14px] transition';
-        document.getElementById('tab-admin').className = grupo === 'ADMIN' ? 'pb-3 px-2 tab-active text-[14px] transition' : 'pb-3 px-2 tab-inactive text-[14px] transition';
+        document.getElementById('tab-operativos').className = grupo === 'OPERATIVOS' ? 'pb-3 px-2 tab-active text-[14px] transition whitespace-nowrap' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap';
+        document.getElementById('tab-admin').className = grupo === 'ADMIN' ? 'pb-3 px-2 tab-active text-[14px] transition whitespace-nowrap' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap';
+        document.getElementById('tab-auditoria').className = grupo === 'AUDITORIA' ? 'pb-3 px-2 tab-active-warn text-[14px] transition whitespace-nowrap flex items-center gap-2' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap flex items-center gap-2';
+
+        if(grupo === 'AUDITORIA') {
+            document.getElementById('vista-dashboard').classList.add('hidden');
+            document.getElementById('vista-auditoria').classList.remove('hidden');
+            document.getElementById('selectTipo').disabled = true;
+            document.getElementById('selectTipo').classList.add('opacity-50');
+        } else {
+            document.getElementById('vista-dashboard').classList.remove('hidden');
+            document.getElementById('vista-auditoria').classList.add('hidden');
+            document.getElementById('selectTipo').disabled = false;
+            document.getElementById('selectTipo').classList.remove('opacity-50');
+        }
         renderDashboard();
     }
 
     async function loadDataFromAPI() {
-        const tbodyOk = document.getElementById('listOk');
-        const tbodyLate = document.getElementById('listLate');
-        
-        tbodyOk.innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos de asistencia...</td></tr>`;
-        tbodyLate.innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos de asistencia...</td></tr>`;
+        document.getElementById('listOk').innerHTML = `<tr><td colspan="4" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos...</td></tr>`;
+        document.getElementById('listLate').innerHTML = `<tr><td colspan="4" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos...</td></tr>`;
+        document.getElementById('listAuditoria').innerHTML = `<tr><td colspan="5" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos...</td></tr>`;
         
         try {
             const response = await fetch(API_URL);
             const rawText = await response.text();
             
-            // Detección de Error de Permisos (Bloqueo de Google)
             if(rawText.includes("<!DOCTYPE html>")) {
-                const errorHtml = `<tr><td colspan="3" class="px-5 py-6 text-center text-bad-700 bg-bad-100/50">
-                    <b>🚨 BLOQUEO DE GOOGLE (CORS ERROR)</b><br><br>
-                    Tu API está pidiendo iniciar sesión. Debes ir a Google Apps Script y:<br>
-                    1. Clic en <b>Implementar > Nueva Implementación</b>.<br>
-                    2. En "Quién tiene acceso" poner <b>"Cualquier persona" (Anyone)</b>.<br>
-                    3. Actualizar la URL en el HTML si cambia.
-                </td></tr>`;
-                tbodyOk.innerHTML = errorHtml;
-                tbodyLate.innerHTML = errorHtml;
+                alert("Error: Google Apps Script bloqueó el acceso. Verifica la implementación.");
                 return;
             }
 
             dataAsistencia = JSON.parse(rawText);
-            
             if (dataAsistencia.error) {
-                tbodyOk.innerHTML = `<tr><td colspan="3" class="px-5 py-4 text-center text-warn-700 font-bold">Aviso del Excel: ${dataAsistencia.error}</td></tr>`;
+                alert("Aviso del Excel: " + dataAsistencia.error);
                 return;
             }
 
-            // AUTO-RELLENAR EL MENÚ DE DÍAS (Extrae todos los días de tu Excel)
             let diasUnicos = new Set();
             dataAsistencia.forEach(d => { if (d.dia && d.dia.trim() !== "") diasUnicos.add(d.dia.trim()); });
             
             const selectDia = document.getElementById('selectDia');
-            selectDia.innerHTML = ''; // Limpiamos opciones
+            selectDia.innerHTML = ''; 
             
             if (diasUnicos.size === 0) {
                 selectDia.innerHTML = '<option value="">No se encontraron fechas</option>';
@@ -266,14 +279,8 @@
             renderDashboard();
 
         } catch (error) {
-            // El error "Failed to fetch" (Error de conexión / URL errónea o bloqueada)
-            const errorHtml = `<tr><td colspan="3" class="px-5 py-6 text-center text-bad-700 bg-bad-100/50">
-                    <b>🚨 ERROR DE CONEXIÓN (Failed to fetch)</b><br><br>
-                    Esto ocurre si la URL de la API es incorrecta o si Google bloqueó el acceso.<br>
-                    Asegúrate de publicar el script en Google Sheets como "Nueva Implementación" y acceso para "Cualquier persona".
-                </td></tr>`;
-            tbodyOk.innerHTML = errorHtml;
-            tbodyLate.innerHTML = errorHtml;
+            console.error("Error cargando API:", error);
+            alert("Error conectando con Google Sheets.");
         }
     }
 
@@ -281,122 +288,142 @@
         if(dataAsistencia.length === 0 || !dataAsistencia[0].nombre) return;
 
         const selectedDia = document.getElementById('selectDia').value;
-        const selectedTipo = document.getElementById('selectTipo').value.toLowerCase().replace(" ", ""); // "qr", "clockin", "odoo"
+        const selectedTipo = document.getElementById('selectTipo').value; // ODOO, CLOCK IN, QR
         
+        const keyMap = { "ODOO": "odoo", "CLOCK IN": "clockin", "QR": "qr" };
+        const dataKey = keyMap[selectedTipo];
+
         let onTimeData = [];
         let lateData = [];
+        let auditData = [];
 
         dataAsistencia.forEach(row => {
             if(row.dia !== selectedDia) return;
 
-            // Filtro por Roles
-            const isOperativo = String(row.rol).toUpperCase().includes("TECHNICIAN") || String(row.rol).toUpperCase().includes("TEAM LEADER") || String(row.rol).toUpperCase().includes("TORRERO");
-            const isAdmin = String(row.rol).toUpperCase().includes("ADMINISTRATIVO") || String(row.rol).toUpperCase().includes("ASISTENTE") || String(row.rol).toUpperCase().includes("RH");
+            const rowNombre = row.nombre || "Desconocido";
+            const rowRol = String(row.rol || "").toUpperCase();
+            const rowTeam = row.team || "TEAM 0"; 
+            const horaOdoo = row.odoo || "";
+            const horaClock = row.clockin || "";
+            const timeVal = row[dataKey] || "";
+            
+            if (currentGrupo === 'AUDITORIA') {
+                let minOdoo = parseHoraAMinutos(horaOdoo);
+                let minClock = parseHoraAMinutos(horaClock);
+
+                if (minOdoo !== null && minClock === null) {
+                    auditData.push({ nombre: rowNombre, team: rowTeam, alrt: "Falta en CLOCK IN", sev: "alta", ho: horaOdoo, hc: "Vacío" });
+                } else if (minOdoo === null && minClock !== null) {
+                    auditData.push({ nombre: rowNombre, team: rowTeam, alrt: "Falta en ODOO", sev: "alta", ho: "Vacío", hc: horaClock });
+                } else if (minOdoo !== null && minClock !== null) {
+                    let dif = Math.abs(minOdoo - minClock);
+                    if (dif > 15) {
+                        auditData.push({ nombre: rowNombre, team: rowTeam, alrt: `Desfase de ${dif} min`, sev: "media", ho: horaOdoo, hc: horaClock });
+                    }
+                }
+                return;
+            }
+
+            const isOperativo = rowRol.includes("TECHNICIAN") || rowRol.includes("TEAM LEADER") || rowRol.includes("TORRERO");
+            const isAdmin = rowRol.includes("ADMINISTRATIVO") || rowRol.includes("ASISTENTE") || rowRol.includes("RH");
 
             if(currentGrupo === 'OPERATIVOS' && !isOperativo) return;
             if(currentGrupo === 'ADMIN' && !isAdmin) return;
 
-            const timeVal = row[selectedTipo]; // Busca la hora
             const isPuntual = checkPuntualidad(timeVal);
 
             if (isPuntual === true) {
-                onTimeData.push({ nombre: row.nombre, rol: row.rol, hora: timeVal });
+                onTimeData.push({ nombre: rowNombre, rol: rowRol, team: rowTeam, hora: timeVal });
             } else if (isPuntual === false) {
-                lateData.push({ nombre: row.nombre, rol: row.rol, hora: timeVal });
+                lateData.push({ nombre: rowNombre, rol: rowRol, team: rowTeam, hora: timeVal });
             }
         });
 
-        updateUI(onTimeData, lateData);
+        if (currentGrupo === 'AUDITORIA') {
+            updateAuditoria(auditData);
+        } else {
+            updateUI(onTimeData, lateData);
+        }
+    }
+
+    function updateAuditoria(auditData) {
+        document.getElementById('countAlertas').textContent = `${auditData.length} Alertas`;
+        const tbody = document.getElementById('listAuditoria');
+        tbody.innerHTML = '';
+        
+        if(auditData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="px-5 py-10 text-ink-500 text-center">Todo en orden. No hay discrepancias este día. 🎉</td></tr>`;
+            return;
+        }
+
+        auditData.forEach(r => {
+            const classBadge = r.sev === 'alta' ? 'bg-bad-100 text-bad-700 border-bad-700/20' : 'bg-warn-100 text-warn-700 border-warn-700/20';
+            tbody.innerHTML += `
+                <tr class="hover:bg-canvas transition">
+                    <td class="px-5 py-4 border-b border-line/50 font-bold">${r.nombre}</td>
+                    <td class="px-5 py-4 border-b border-line/50"><span class="bg-line/50 text-ink-700 px-2 py-1 rounded text-[11px] font-mono border border-line">${r.team}</span></td>
+                    <td class="px-5 py-4 border-b border-line/50 text-center font-bold text-navy-900">${r.ho}</td>
+                    <td class="px-5 py-4 border-b border-line/50 text-center font-bold text-navy-900">${r.hc}</td>
+                    <td class="px-5 py-4 border-b border-line/50"><span class="px-3 py-1 rounded text-[11px] font-bold border ${classBadge}">${r.alrt}</span></td>
+                </tr>`;
+        });
     }
 
     function updateUI(onTimeData, lateData) {
         const total = onTimeData.length + lateData.length;
-        const countOk = onTimeData.length;
-        const countLate = lateData.length;
-        
         document.getElementById('kpiTotal').textContent = total;
-        document.getElementById('kpiOk').textContent = countOk;
-        document.getElementById('kpiLate').textContent = countLate;
-        document.getElementById('countOk').textContent = countOk;
-        document.getElementById('countLate').textContent = countLate;
+        document.getElementById('kpiOk').textContent = onTimeData.length;
+        document.getElementById('kpiLate').textContent = lateData.length;
+        document.getElementById('countOk').textContent = onTimeData.length;
+        document.getElementById('countLate').textContent = lateData.length;
+        document.getElementById('kpiTasa').textContent = (total === 0 ? 0 : Math.round((onTimeData.length / total) * 100)) + '%';
 
-        let tasa = total === 0 ? 0 : Math.round((countOk / total) * 100);
-        document.getElementById('kpiTasa').textContent = tasa + '%';
+        renderCharts(onTimeData.length, lateData.length);
 
-        // Actualizar ambos gráficos
-        renderCharts(countOk, countLate);
-
-        const sortByTime = (a, b) => {
-            const timeA = parseInt(a.hora.split(':')[0])*60 + parseInt(a.hora.split(':')[1]);
-            const timeB = parseInt(b.hora.split(':')[0])*60 + parseInt(b.hora.split(':')[1]);
-            return timeA - timeB;
-        };
+        const sortByTime = (a, b) => parseHoraAMinutos(a.hora) - parseHoraAMinutos(b.hora);
 
         const tOk = document.getElementById('listOk');
         tOk.innerHTML = '';
-        if(onTimeData.length === 0) tOk.innerHTML = '<tr><td colspan="3" class="px-5 py-10 text-ink-500 text-center">Nadie marcó a tiempo este día.</td></tr>';
+        if(onTimeData.length === 0) tOk.innerHTML = '<tr><td colspan="4" class="px-5 py-10 text-ink-500 text-center">Nadie marcó a tiempo este día.</td></tr>';
         onTimeData.sort(sortByTime).forEach(r => {
-            tOk.innerHTML += `<tr class="hover:bg-ok-100/50 transition"><td class="px-5 py-3 border-b border-line/50">${r.nombre}</td><td class="px-5 py-3 border-b border-line/50 text-ink-500 font-mono text-[11px]">${r.rol}</td><td class="px-5 py-3 border-b border-line/50 text-right font-bold text-ok-700 text-[14px]">${r.hora}</td></tr>`;
+            tOk.innerHTML += `
+            <tr class="hover:bg-ok-100/50 transition">
+                <td class="px-5 py-3 border-b border-line/50 font-medium">${r.nombre}</td>
+                <td class="px-5 py-3 border-b border-line/50"><span class="bg-line/50 text-ink-700 px-2 py-1 rounded text-[11px] font-mono border border-line">${r.team}</span></td>
+                <td class="px-5 py-3 border-b border-line/50 text-ink-500 font-mono text-[11px]">${r.rol}</td>
+                <td class="px-5 py-3 border-b border-line/50 text-right font-bold text-ok-700 text-[14px]">${r.hora}</td>
+            </tr>`;
         });
 
         const tLate = document.getElementById('listLate');
         tLate.innerHTML = '';
-        if(lateData.length === 0) tLate.innerHTML = '<tr><td colspan="3" class="px-5 py-10 text-ink-500 text-center">Nadie marcó tarde este día.</td></tr>';
+        if(lateData.length === 0) tLate.innerHTML = '<tr><td colspan="4" class="px-5 py-10 text-ink-500 text-center">Nadie marcó tarde este día.</td></tr>';
         lateData.sort(sortByTime).forEach(r => {
-            tLate.innerHTML += `<tr class="hover:bg-bad-100/50 transition"><td class="px-5 py-3 border-b border-line/50">${r.nombre}</td><td class="px-5 py-3 border-b border-line/50 text-ink-500 font-mono text-[11px]">${r.rol}</td><td class="px-5 py-3 border-b border-line/50 text-right font-bold text-bad-700 text-[14px]">${r.hora}</td></tr>`;
+            tLate.innerHTML += `
+            <tr class="hover:bg-bad-100/50 transition">
+                <td class="px-5 py-3 border-b border-line/50 font-medium">${r.nombre}</td>
+                <td class="px-5 py-3 border-b border-line/50"><span class="bg-line/50 text-ink-700 px-2 py-1 rounded text-[11px] font-mono border border-line">${r.team}</span></td>
+                <td class="px-5 py-3 border-b border-line/50 text-ink-500 font-mono text-[11px]">${r.rol}</td>
+                <td class="px-5 py-3 border-b border-line/50 text-right font-bold text-bad-700 text-[14px]">${r.hora}</td>
+            </tr>`;
         });
     }
 
     function renderCharts(ok, late) {
-        // 1. DOUGHNUT CHART (Porcentajes)
         if(myChart) myChart.destroy();
+        if(myBarChart) myBarChart.destroy();
         const ctxPie = document.getElementById('chartAsistencia').getContext('2d');
+        const ctxBar = document.getElementById('chartBarrasAsistencia').getContext('2d');
         
         if (ok === 0 && late === 0) {
-            myChart = new Chart(ctxPie, {
-                type: 'doughnut', data: { labels: ['Sin datos'], datasets: [{ data: [1], backgroundColor: ['#E3E7ED'] }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '75%', animation: false }
-            });
+            myChart = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['Sin datos'], datasets: [{ data: [1], backgroundColor: ['#E3E7ED'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '75%', animation: false } });
+            myBarChart = new Chart(ctxBar, { type: 'bar', data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [0, 0], backgroundColor: ['#E3E7ED', '#E3E7ED'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false } } } });
         } else {
-            myChart = new Chart(ctxPie, {
-                type: 'doughnut',
-                data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [ok, late], backgroundColor: ['#0E6B45', '#A32E27'], borderWidth: 0 }] },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12, family: 'Inter' } } } } }
-            });
-        }
-
-        // 2. BAR CHART (Comparativa)
-        if(myBarChart) myBarChart.destroy();
-        const ctxBar = document.getElementById('chartBarrasAsistencia').getContext('2d');
-
-        if (ok === 0 && late === 0) {
-            myBarChart = new Chart(ctxBar, {
-                type: 'bar',
-                data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [0, 0], backgroundColor: ['#E3E7ED', '#E3E7ED'] }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false } } }
-            });
-        } else {
-            myBarChart = new Chart(ctxBar, {
-                type: 'bar',
-                data: { 
-                    labels: ['A Tiempo', 'Tarde'], 
-                    datasets: [{ 
-                        data: [ok, late], 
-                        backgroundColor: ['#0E6B45', '#A32E27'], 
-                        borderRadius: 4
-                    }] 
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } 
-                }
-            });
+            myChart = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [ok, late], backgroundColor: ['#0E6B45', '#A32E27'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12, family: 'Inter' } } } } } });
+            myBarChart = new Chart(ctxBar, { type: 'bar', data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [ok, late], backgroundColor: ['#0E6B45', '#A32E27'], borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } });
         }
     }
 
-    // Arranque automático
     window.onload = () => { loadDataFromAPI(); };
 </script>
 </body>
