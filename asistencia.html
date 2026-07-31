@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Control de Asistencia Diario</title>
+<title>Control de Asistencia Diario y Ejecutivo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
@@ -20,7 +20,8 @@
                     line: '#E3E7ED', canvas: '#F4F6F9',
                     ok: { 700: '#0E6B45', 100: '#E4F4EC' },
                     bad: { 700: '#A32E27', 100: '#FBEAE9' },
-                    warn: { 700: '#B45309', 100: '#FEF3C7' }
+                    warn: { 700: '#B45309', 100: '#FEF3C7' },
+                    purple: { 700: '#6B21A8', 100: '#F3E8FF' } // Nuevo color para reportes ejecutivos
                 },
                 fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['IBM Plex Mono', 'monospace'] }
             }
@@ -34,6 +35,7 @@
     ::-webkit-scrollbar-thumb { background: #C7CDD8; border-radius: 4px; }
     .tab-active { border-bottom: 3px solid #0B2245; color: #0B2245; font-weight: 700; }
     .tab-active-warn { border-bottom: 3px solid #B45309; color: #B45309; font-weight: 700; }
+    .tab-active-exec { border-bottom: 3px solid #6B21A8; color: #6B21A8; font-weight: 700; }
     .tab-inactive { color: #647087; font-weight: 500; }
     .tab-inactive:hover { color: #1B2430; }
 </style>
@@ -50,11 +52,12 @@
             </svg>
             <div class="leading-tight">
                 <div class="font-bold text-[15px] tracking-wide">CONTROL DE ASISTENCIA</div>
-                <div class="text-[11px] text-white/50 tracking-wide">Análisis diario de marcaciones y Auditoría</div>
+                <div class="text-[11px] text-white/50 tracking-wide">Dashboard Operativo y Gerencial</div>
             </div>
         </div>
         <div class="flex gap-4">
             <a href="dashboard_rrhh.html" class="text-[12px] font-semibold text-white/80 hover:text-white transition flex items-center gap-1">
+                ← Volver a Data Maestra
             </a>
         </div>
     </div>
@@ -66,13 +69,15 @@
         <div class="flex gap-6 border-b border-line w-full md:w-auto overflow-x-auto">
             <button id="tab-operativos" onclick="setGrupo('OPERATIVOS')" class="pb-3 px-2 tab-active text-[14px] transition whitespace-nowrap">Técnicos & Team Leaders</button>
             <button id="tab-admin" onclick="setGrupo('ADMIN')" class="pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap">Administrativos</button>
-            <button id="tab-auditoria" onclick="setGrupo('AUDITORIA')" class="pb-3 px-2 tab-inactive text-[14px] transition flex items-center gap-2 whitespace-nowrap">Auditoría: Odoo vs Clock In</button>
+            <button id="tab-auditoria" onclick="setGrupo('AUDITORIA')" class="pb-3 px-2 tab-inactive text-[14px] transition flex items-center gap-2 whitespace-nowrap">Auditoría Diaria</button>
+            <button id="tab-ejecutivo" onclick="setGrupo('EJECUTIVO')" class="pb-3 px-2 tab-inactive text-[14px] transition flex items-center gap-2 whitespace-nowrap">Reporte Mensual</button>
         </div>
         
         <div class="flex gap-3 w-full md:w-auto">
             <button onclick="loadDataFromAPI()" class="border border-line px-3 py-2 rounded-lg text-ink-700 hover:bg-canvas transition" title="Actualizar datos">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>
             </button>
+            <!-- Selector de Día (Se oculta en vista ejecutiva) -->
             <select id="selectDia" onchange="renderDashboard()" class="border border-line rounded-lg px-4 py-2 text-[13px] focus:outline-none focus:border-navy-900 bg-white font-medium shadow-sm">
                 <option value="">Cargando días...</option>
             </select>
@@ -106,19 +111,13 @@
                     <div class="text-4xl font-extrabold text-navy-900" id="kpiTasa">0%</div>
                 </div>
             </div>
-
             <div class="bg-white rounded-xl border border-line p-5 flex flex-col items-center justify-center shadow-sm h-64 lg:h-auto">
                 <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-2 w-full text-center">Porcentaje de Asistencia</h4>
-                <div class="relative w-full h-full flex justify-center max-h-[180px]">
-                    <canvas id="chartAsistencia"></canvas>
-                </div>
+                <div class="relative w-full h-full flex justify-center max-h-[180px]"><canvas id="chartAsistencia"></canvas></div>
             </div>
-
             <div class="bg-white rounded-xl border border-line p-5 flex flex-col items-center justify-center shadow-sm h-64 lg:h-auto">
                 <h4 class="text-[12px] font-bold text-navy-900 uppercase tracking-wide mb-2 w-full text-center">Comparativa</h4>
-                <div class="relative w-full h-full flex justify-center max-h-[180px]">
-                    <canvas id="chartBarrasAsistencia"></canvas>
-                </div>
+                <div class="relative w-full h-full flex justify-center max-h-[180px]"><canvas id="chartBarrasAsistencia"></canvas></div>
             </div>
         </div>
 
@@ -133,19 +132,12 @@
                 <div class="overflow-y-auto flex-grow p-0">
                     <table class="w-full text-left">
                         <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold shadow-sm">
-                            <tr>
-                                <th class="px-5 py-3">Trabajador</th>
-                                <th class="px-5 py-3">Team</th>
-                                <th class="px-5 py-3">Rol</th>
-                                <th class="px-5 py-3 text-right">Hora</th>
-                            </tr>
+                            <tr><th class="px-5 py-3">Trabajador</th><th class="px-5 py-3">Team</th><th class="px-5 py-3 text-right">Hora</th></tr>
                         </thead>
-                        <tbody id="listOk" class="divide-y divide-line text-[13px] font-medium text-navy-900">
-                        </tbody>
+                        <tbody id="listOk" class="divide-y divide-line text-[13px] font-medium text-navy-900"></tbody>
                     </table>
                 </div>
             </div>
-
             <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col h-[500px]">
                 <div class="bg-bad-100 border-b border-bad-700/20 px-5 py-3 flex justify-between items-center shrink-0">
                     <h3 class="font-bold text-bad-700 text-[14px] uppercase tracking-wide flex items-center gap-2">
@@ -156,21 +148,16 @@
                 <div class="overflow-y-auto flex-grow p-0">
                     <table class="w-full text-left">
                         <thead class="bg-canvas sticky top-0 border-b border-line text-[11px] text-ink-500 uppercase font-semibold shadow-sm">
-                            <tr>
-                                <th class="px-5 py-3">Trabajador</th>
-                                <th class="px-5 py-3">Team</th>
-                                <th class="px-5 py-3">Rol</th>
-                                <th class="px-5 py-3 text-right">Hora</th>
-                            </tr>
+                            <tr><th class="px-5 py-3">Trabajador</th><th class="px-5 py-3">Team</th><th class="px-5 py-3 text-right">Hora</th></tr>
                         </thead>
-                        <tbody id="listLate" class="divide-y divide-line text-[13px] font-medium text-navy-900">
-                        </tbody>
+                        <tbody id="listLate" class="divide-y divide-line text-[13px] font-medium text-navy-900"></tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- VISTA AUDITORÍA -->
     <div id="vista-auditoria" class="hidden">
         <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden flex flex-col">
             <div class="bg-navy-950 px-5 py-4 flex justify-between items-center shrink-0">
@@ -180,30 +167,105 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead class="bg-canvas border-b border-line text-[11px] text-ink-500 uppercase font-semibold">
-                        <tr>
-                            <th class="px-5 py-4">Trabajador</th>
-                            <th class="px-5 py-4">Team</th>
-                            <th class="px-5 py-4 text-center">Odoo</th>
-                            <th class="px-5 py-4 text-center">Clock In</th>
-                            <th class="px-5 py-4">Motivo de Alerta</th>
-                        </tr>
+                        <tr><th class="px-5 py-4">Trabajador</th><th class="px-5 py-4">Team</th><th class="px-5 py-4 text-center">Odoo</th><th class="px-5 py-4 text-center">Clock In</th><th class="px-5 py-4">Motivo de Alerta</th></tr>
                     </thead>
-                    <tbody id="listAuditoria" class="divide-y divide-line text-[13px] font-medium text-navy-900">
-                    </tbody>
+                    <tbody id="listAuditoria" class="divide-y divide-line text-[13px] font-medium text-navy-900"></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <div id="vista-ejecutivo" class="hidden">
+    
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded border border-line p-5 shadow-sm">
+                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Total Marcaciones Mes</div>
+                <div class="text-3xl font-black text-navy-900" id="execTotalMarks">0</div>
+            </div>
+            <div class="bg-white rounded border border-line p-5 shadow-sm border-b-4 border-b-ok-700">
+                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">% Puntualidad Global</div>
+                <div class="text-3xl font-black text-ok-700" id="execPercOk">0%</div>
+            </div>
+            <div class="bg-white rounded border border-line p-5 shadow-sm border-b-4 border-b-bad-700">
+                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">% Tardanzas Global</div>
+                <div class="text-3xl font-black text-bad-700" id="execPercLate">0%</div>
+            </div>
+            <div class="bg-white rounded border border-line p-5 shadow-sm border-b-4 border-b-purple-700">
+                <div class="text-[11px] font-bold text-ink-500 uppercase tracking-wide mb-1">Personal Asistencia Perfecta</div>
+                <div class="text-3xl font-black text-purple-700" id="execPerfectos">0</div>
+                <div class="text-[10px] text-ink-500 mt-1">Cero tardanzas en el mes</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div class="lg:col-span-2 bg-white rounded border border-line p-5 shadow-sm">
+                <h4 class="text-[13px] font-bold text-navy-900 uppercase tracking-wide mb-4">Tendencia Diaria de Tardanzas</h4>
+                <div class="relative w-full h-64">
+                    <canvas id="chartTrend"></canvas>
+                </div>
+            </div>
+            <div class="bg-white rounded border border-line p-5 shadow-sm flex flex-col items-center">
+                <h4 class="text-[13px] font-bold text-navy-900 uppercase tracking-wide mb-4 w-full text-center">Proporción Mensual</h4>
+                <div class="relative w-full h-48 flex justify-center">
+                    <canvas id="chartExecPie"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-1 bg-white rounded border border-line shadow-sm overflow-hidden flex flex-col">
+                <div class="bg-bad-700 px-5 py-3 flex justify-between items-center">
+                    <h3 class="font-bold text-white text-[13px] uppercase tracking-wide flex items-center gap-2">Top 10 Tardanzas</h3>
+                </div>
+                <div class="overflow-y-auto max-h-[400px]">
+                    <table class="w-full text-left">
+                        <thead class="bg-canvas sticky top-0 border-b border-line text-[10px] text-ink-500 uppercase font-semibold">
+                            <tr><th class="px-4 py-2">Trabajador</th><th class="px-4 py-2 text-center">Tardanzas</th></tr>
+                        </thead>
+                        <tbody id="listTop10" class="divide-y divide-line text-[12px] font-medium text-navy-900">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 bg-white rounded border border-line shadow-sm overflow-hidden flex flex-col">
+                <div class="bg-navy-900 px-5 py-3 flex justify-between items-center">
+                    <h3 class="font-bold text-white text-[13px] uppercase tracking-wide">Ficha Individual de Asistencia Mensual</h3>
+                </div>
+                <div class="overflow-y-auto max-h-[400px]">
+                    <table class="w-full text-left">
+                        <thead class="bg-canvas sticky top-0 border-b border-line text-[10px] text-ink-500 uppercase font-semibold">
+                            <tr>
+                                <th class="px-5 py-3">Trabajador</th>
+                                <th class="px-5 py-3">Team</th>
+                                <th class="px-5 py-3 text-center">A Tiempo</th>
+                                <th class="px-5 py-3 text-center">Tardanzas</th>
+                                <th class="px-5 py-3 text-center">% Puntualidad</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listResumenPersonal" class="divide-y divide-line text-[12px] font-medium text-navy-900">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
     </div>
 
 </main>
 
 <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwd6KsshSdXXOj4ZofsH-oy2DI5q5iC1j7F_zDmV6_WAqjdS3AdNH-JYJsK-347GaK-/exec?modo=asistencia'; 
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxYQ1Kyf2uYQjHGHc-e22vYSomGzMpvJ3gh-okEyxxa2g127gVPMBUmrR5W46tPFwA-/exec?modo=asistencia'; 
     
     let dataAsistencia = [];
     let currentGrupo = 'OPERATIVOS'; 
+    
+    // Instancias de gráficos
     let myChart = null;
     let myBarChart = null;
+    let trendChart = null;
+    let execPieChart = null;
 
     function parseHoraAMinutos(timeStr) {
         if (!timeStr || String(timeStr).trim() === '' || timeStr === 'F' || timeStr === 'QR' || timeStr === 'E') return null;
@@ -218,34 +280,45 @@
     function checkPuntualidad(timeStr) {
         let totalMins = parseHoraAMinutos(timeStr);
         if (totalMins === null) return null;
-        let limitMins = (8 * 60) + 10; // Límite: 08:10 AM
-        return totalMins <= limitMins; 
+        return totalMins <= ((8 * 60) + 10); 
     }
 
     function setGrupo(grupo) {
         currentGrupo = grupo;
+        
+        // Colores de pestañas
         document.getElementById('tab-operativos').className = grupo === 'OPERATIVOS' ? 'pb-3 px-2 tab-active text-[14px] transition whitespace-nowrap' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap';
         document.getElementById('tab-admin').className = grupo === 'ADMIN' ? 'pb-3 px-2 tab-active text-[14px] transition whitespace-nowrap' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap';
         document.getElementById('tab-auditoria').className = grupo === 'AUDITORIA' ? 'pb-3 px-2 tab-active-warn text-[14px] transition whitespace-nowrap flex items-center gap-2' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap flex items-center gap-2';
+        document.getElementById('tab-ejecutivo').className = grupo === 'EJECUTIVO' ? 'pb-3 px-2 tab-active-exec text-[14px] transition whitespace-nowrap flex items-center gap-2' : 'pb-3 px-2 tab-inactive text-[14px] transition whitespace-nowrap flex items-center gap-2';
+
+        // Manejo de Vistas y Selectores
+        document.getElementById('vista-dashboard').classList.add('hidden');
+        document.getElementById('vista-auditoria').classList.add('hidden');
+        document.getElementById('vista-ejecutivo').classList.add('hidden');
+        
+        document.getElementById('selectDia').disabled = false;
+        document.getElementById('selectDia').classList.remove('opacity-50', 'hidden');
+        document.getElementById('selectTipo').disabled = false;
+        document.getElementById('selectTipo').classList.remove('opacity-50');
 
         if(grupo === 'AUDITORIA') {
-            document.getElementById('vista-dashboard').classList.add('hidden');
             document.getElementById('vista-auditoria').classList.remove('hidden');
             document.getElementById('selectTipo').disabled = true;
             document.getElementById('selectTipo').classList.add('opacity-50');
+        } else if (grupo === 'EJECUTIVO') {
+            document.getElementById('vista-ejecutivo').classList.remove('hidden');
+            document.getElementById('selectDia').classList.add('hidden');
         } else {
             document.getElementById('vista-dashboard').classList.remove('hidden');
-            document.getElementById('vista-auditoria').classList.add('hidden');
-            document.getElementById('selectTipo').disabled = false;
-            document.getElementById('selectTipo').classList.remove('opacity-50');
         }
+        
         renderDashboard();
     }
 
     async function loadDataFromAPI() {
-        document.getElementById('listOk').innerHTML = `<tr><td colspan="4" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos...</td></tr>`;
-        document.getElementById('listLate').innerHTML = `<tr><td colspan="4" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos...</td></tr>`;
-        document.getElementById('listAuditoria').innerHTML = `<tr><td colspan="5" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos...</td></tr>`;
+        document.getElementById('listOk').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos...</td></tr>`;
+        document.getElementById('listLate').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando datos...</td></tr>`;
         
         try {
             const response = await fetch(API_URL);
@@ -257,39 +330,39 @@
             }
 
             dataAsistencia = JSON.parse(rawText);
-            if (dataAsistencia.error) {
-                alert("Aviso del Excel: " + dataAsistencia.error);
-                return;
-            }
 
             let diasUnicos = new Set();
             dataAsistencia.forEach(d => { if (d.dia && d.dia.trim() !== "") diasUnicos.add(d.dia.trim()); });
             
+            // Ordenamos los días para que la tendencia salga cronológica
+            let diasOrdenados = Array.from(diasUnicos).sort((a,b) => parseInt(a) - parseInt(b));
+            
             const selectDia = document.getElementById('selectDia');
             selectDia.innerHTML = ''; 
-            
-            if (diasUnicos.size === 0) {
-                selectDia.innerHTML = '<option value="">No se encontraron fechas</option>';
+            if (diasOrdenados.length === 0) {
+                selectDia.innerHTML = '<option value="">Sin datos</option>';
             } else {
-                Array.from(diasUnicos).forEach(dia => {
-                    selectDia.innerHTML += `<option value="${dia}">${dia}</option>`;
-                });
+                diasOrdenados.forEach(dia => { selectDia.innerHTML += `<option value="${dia}">${dia}</option>`; });
             }
 
             renderDashboard();
 
         } catch (error) {
-            console.error("Error cargando API:", error);
+            console.error("Error:", error);
             alert("Error conectando con Google Sheets.");
         }
     }
 
     function renderDashboard() {
-        if(dataAsistencia.length === 0 || !dataAsistencia[0].nombre) return;
+        if(dataAsistencia.length === 0) return;
+
+        if (currentGrupo === 'EJECUTIVO') {
+            renderEjecutivo();
+            return;
+        }
 
         const selectedDia = document.getElementById('selectDia').value;
-        const selectedTipo = document.getElementById('selectTipo').value; // ODOO, CLOCK IN, QR
-        
+        const selectedTipo = document.getElementById('selectTipo').value; 
         const keyMap = { "ODOO": "odoo", "CLOCK IN": "clockin", "QR": "qr" };
         const dataKey = keyMap[selectedTipo];
 
@@ -303,22 +376,19 @@
             const rowNombre = row.nombre || "Desconocido";
             const rowRol = String(row.rol || "").toUpperCase();
             const rowTeam = row.team || "TEAM 0"; 
-            const horaOdoo = row.odoo || "";
-            const horaClock = row.clockin || "";
-            const timeVal = row[dataKey] || "";
             
             if (currentGrupo === 'AUDITORIA') {
-                let minOdoo = parseHoraAMinutos(horaOdoo);
-                let minClock = parseHoraAMinutos(horaClock);
+                let minOdoo = parseHoraAMinutos(row.odoo || "");
+                let minClock = parseHoraAMinutos(row.clockin || "");
 
                 if (minOdoo !== null && minClock === null) {
-                    auditData.push({ nombre: rowNombre, team: rowTeam, alrt: "Falta en CLOCK IN", sev: "alta", ho: horaOdoo, hc: "Vacío" });
+                    auditData.push({ nombre: rowNombre, team: rowTeam, alrt: "Falta en CLOCK IN", sev: "alta", ho: row.odoo, hc: "Vacío" });
                 } else if (minOdoo === null && minClock !== null) {
-                    auditData.push({ nombre: rowNombre, team: rowTeam, alrt: "Falta en ODOO", sev: "alta", ho: "Vacío", hc: horaClock });
+                    auditData.push({ nombre: rowNombre, team: rowTeam, alrt: "Falta en ODOO", sev: "alta", ho: "Vacío", hc: row.clockin });
                 } else if (minOdoo !== null && minClock !== null) {
                     let dif = Math.abs(minOdoo - minClock);
                     if (dif > 15) {
-                        auditData.push({ nombre: rowNombre, team: rowTeam, alrt: `Desfase de ${dif} min`, sev: "media", ho: horaOdoo, hc: horaClock });
+                        auditData.push({ nombre: rowNombre, team: rowTeam, alrt: `Desfase de ${dif} min`, sev: "media", ho: row.odoo, hc: row.clockin });
                     }
                 }
                 return;
@@ -330,42 +400,153 @@
             if(currentGrupo === 'OPERATIVOS' && !isOperativo) return;
             if(currentGrupo === 'ADMIN' && !isAdmin) return;
 
+            const timeVal = row[dataKey] || "";
             const isPuntual = checkPuntualidad(timeVal);
 
-            if (isPuntual === true) {
-                onTimeData.push({ nombre: rowNombre, rol: rowRol, team: rowTeam, hora: timeVal });
-            } else if (isPuntual === false) {
-                lateData.push({ nombre: rowNombre, rol: rowRol, team: rowTeam, hora: timeVal });
+            if (isPuntual === true) onTimeData.push({ nombre: rowNombre, team: rowTeam, hora: timeVal });
+            else if (isPuntual === false) lateData.push({ nombre: rowNombre, team: rowTeam, hora: timeVal });
+        });
+
+        if (currentGrupo === 'AUDITORIA') updateAuditoria(auditData);
+        else updateUI(onTimeData, lateData);
+    }
+
+    function renderEjecutivo() {
+        const selectedTipo = document.getElementById('selectTipo').value; 
+        const keyMap = { "ODOO": "odoo", "CLOCK IN": "clockin", "QR": "qr" };
+        const dataKey = keyMap[selectedTipo];
+
+        let globalOk = 0;
+        let globalLate = 0;
+        let trendData = {}; 
+        let trabajadoresStats = {}; 
+
+        dataAsistencia.forEach(row => {
+            const timeVal = row[dataKey] || "";
+            const isPuntual = checkPuntualidad(timeVal);
+            
+            if (isPuntual === null) return; 
+
+            const nombre = row.nombre || "Desconocido";
+            const dia = row.dia;
+            
+            if (isPuntual) globalOk++; else globalLate++;
+
+            if (!trendData[dia]) trendData[dia] = { ok: 0, tarde: 0 };
+            if (isPuntual) trendData[dia].ok++; else trendData[dia].tarde++;
+
+            if (!trabajadoresStats[nombre]) {
+                trabajadoresStats[nombre] = { team: row.team || "TEAM 0", ok: 0, tarde: 0, total: 0 };
+            }
+            trabajadoresStats[nombre].total++;
+            if (isPuntual) trabajadoresStats[nombre].ok++;
+            else trabajadoresStats[nombre].tarde++;
+        });
+        const totalMarks = globalOk + globalLate;
+        const percOk = totalMarks === 0 ? 0 : Math.round((globalOk / totalMarks) * 100);
+        const percLate = totalMarks === 0 ? 0 : Math.round((globalLate / totalMarks) * 100);
+
+        let arrayTrabajadores = Object.keys(trabajadoresStats).map(nombre => {
+            return {
+                nombre: nombre,
+                team: trabajadoresStats[nombre].team,
+                ok: trabajadoresStats[nombre].ok,
+                tarde: trabajadoresStats[nombre].tarde,
+                total: trabajadoresStats[nombre].total,
+                porcentaje: Math.round((trabajadoresStats[nombre].ok / trabajadoresStats[nombre].total) * 100)
             }
         });
 
-        if (currentGrupo === 'AUDITORIA') {
-            updateAuditoria(auditData);
-        } else {
-            updateUI(onTimeData, lateData);
-        }
+        const perfectos = arrayTrabajadores.filter(t => t.total > 0 && t.tarde === 0).length;
+
+        document.getElementById('execTotalMarks').textContent = totalMarks;
+        document.getElementById('execPercOk').textContent = percOk + '%';
+        document.getElementById('execPercLate').textContent = percLate + '%';
+        document.getElementById('execPerfectos').textContent = perfectos;
+
+        let top10Tardones = [...arrayTrabajadores].sort((a, b) => b.tarde - a.tarde).slice(0, 10);
+        const tTop10 = document.getElementById('listTop10');
+        tTop10.innerHTML = '';
+        top10Tardones.forEach(t => {
+            if (t.tarde > 0) {
+                tTop10.innerHTML += `<tr class="hover:bg-bad-100/30 transition border-b border-line/50"><td class="px-4 py-3 font-medium">${t.nombre}</td><td class="px-4 py-3 text-center font-bold text-bad-700">${t.tarde}</td></tr>`;
+            }
+        });
+
+        let listaGeneral = [...arrayTrabajadores].sort((a, b) => a.nombre.localeCompare(b.nombre));
+        const tResumen = document.getElementById('listResumenPersonal');
+        tResumen.innerHTML = '';
+        listaGeneral.forEach(t => {
+            let colorCls = t.porcentaje < 80 ? 'text-bad-700 bg-bad-100' : 'text-ok-700 bg-ok-100';
+            tResumen.innerHTML += `
+            <tr class="hover:bg-canvas transition border-b border-line/50">
+                <td class="px-5 py-3 font-medium text-[11px]">${t.nombre}</td>
+                <td class="px-5 py-3"><span class="bg-line/50 text-ink-700 px-2 py-1 rounded text-[10px] font-mono border border-line">${t.team}</span></td>
+                <td class="px-5 py-3 text-center text-ok-700 font-bold">${t.ok}</td>
+                <td class="px-5 py-3 text-center text-bad-700 font-bold">${t.tarde}</td>
+                <td class="px-5 py-3 text-center"><span class="px-2 py-1 rounded font-bold ${colorCls}">${t.porcentaje}%</span></td>
+            </tr>`;
+        });
+
+        renderGraficosEjecutivos(trendData, globalOk, globalLate);
     }
 
+    function renderGraficosEjecutivos(trendData, globalOk, globalLate) {
+        const diasEjeX = Object.keys(trendData).sort((a,b) => parseInt(a) - parseInt(b));
+        const dataTardeX = diasEjeX.map(d => trendData[d].tarde);
+
+        if(trendChart) trendChart.destroy();
+        const ctxTrend = document.getElementById('chartTrend').getContext('2d');
+        trendChart = new Chart(ctxTrend, {
+            type: 'line',
+            data: {
+                labels: diasEjeX,
+                datasets: [{
+                    label: 'Tardanzas',
+                    data: dataTardeX,
+                    borderColor: '#A32E27',
+                    backgroundColor: 'rgba(163, 46, 39, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#A32E27'
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#E3E7ED' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+
+        // 2. Gráfico de Pastel Ejecutivo
+        if(execPieChart) execPieChart.destroy();
+        const ctxPieExec = document.getElementById('chartExecPie').getContext('2d');
+        execPieChart = new Chart(ctxPieExec, {
+            type: 'doughnut',
+            data: { 
+                labels: ['A Tiempo', 'Tarde'], 
+                datasets: [{ data: [globalOk, globalLate], backgroundColor: ['#0E6B45', '#A32E27'], borderWidth: 0 }] 
+            },
+            options: { 
+                responsive: true, maintainAspectRatio: false, cutout: '70%', 
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11, family: 'Inter' } } } } 
+            }
+        });
+    }
+
+    // Funciones Base UI Normal
     function updateAuditoria(auditData) {
         document.getElementById('countAlertas').textContent = `${auditData.length} Alertas`;
         const tbody = document.getElementById('listAuditoria');
         tbody.innerHTML = '';
-        
-        if(auditData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="px-5 py-10 text-ink-500 text-center">Todo en orden. No hay discrepancias este día. 🎉</td></tr>`;
-            return;
-        }
-
+        if(auditData.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="px-5 py-10 text-center text-ink-500">Sin discrepancias.</td></tr>`; return;}
         auditData.forEach(r => {
-            const classBadge = r.sev === 'alta' ? 'bg-bad-100 text-bad-700 border-bad-700/20' : 'bg-warn-100 text-warn-700 border-warn-700/20';
-            tbody.innerHTML += `
-                <tr class="hover:bg-canvas transition">
-                    <td class="px-5 py-4 border-b border-line/50 font-bold">${r.nombre}</td>
-                    <td class="px-5 py-4 border-b border-line/50"><span class="bg-line/50 text-ink-700 px-2 py-1 rounded text-[11px] font-mono border border-line">${r.team}</span></td>
-                    <td class="px-5 py-4 border-b border-line/50 text-center font-bold text-navy-900">${r.ho}</td>
-                    <td class="px-5 py-4 border-b border-line/50 text-center font-bold text-navy-900">${r.hc}</td>
-                    <td class="px-5 py-4 border-b border-line/50"><span class="px-3 py-1 rounded text-[11px] font-bold border ${classBadge}">${r.alrt}</span></td>
-                </tr>`;
+            const cls = r.sev === 'alta' ? 'bg-bad-100 text-bad-700' : 'bg-warn-100 text-warn-700';
+            tbody.innerHTML += `<tr class="border-b border-line/50"><td class="px-5 py-4 font-bold">${r.nombre}</td><td class="px-5 py-4"><span class="bg-line/50 text-[11px] px-2 py-1 rounded border">${r.team}</span></td><td class="px-5 py-4 text-center font-bold">${r.ho}</td><td class="px-5 py-4 text-center font-bold">${r.hc}</td><td class="px-5 py-4"><span class="px-3 py-1 rounded text-[11px] font-bold ${cls}">${r.alrt}</span></td></tr>`;
         });
     }
 
@@ -378,43 +559,20 @@
         document.getElementById('countLate').textContent = lateData.length;
         document.getElementById('kpiTasa').textContent = (total === 0 ? 0 : Math.round((onTimeData.length / total) * 100)) + '%';
 
-        renderCharts(onTimeData.length, lateData.length);
-
+        renderChartsBase(onTimeData.length, lateData.length);
         const sortByTime = (a, b) => parseHoraAMinutos(a.hora) - parseHoraAMinutos(b.hora);
 
-        const tOk = document.getElementById('listOk');
-        tOk.innerHTML = '';
-        if(onTimeData.length === 0) tOk.innerHTML = '<tr><td colspan="4" class="px-5 py-10 text-ink-500 text-center">Nadie marcó a tiempo este día.</td></tr>';
-        onTimeData.sort(sortByTime).forEach(r => {
-            tOk.innerHTML += `
-            <tr class="hover:bg-ok-100/50 transition">
-                <td class="px-5 py-3 border-b border-line/50 font-medium">${r.nombre}</td>
-                <td class="px-5 py-3 border-b border-line/50"><span class="bg-line/50 text-ink-700 px-2 py-1 rounded text-[11px] font-mono border border-line">${r.team}</span></td>
-                <td class="px-5 py-3 border-b border-line/50 text-ink-500 font-mono text-[11px]">${r.rol}</td>
-                <td class="px-5 py-3 border-b border-line/50 text-right font-bold text-ok-700 text-[14px]">${r.hora}</td>
-            </tr>`;
-        });
+        const tOk = document.getElementById('listOk'); tOk.innerHTML = '';
+        onTimeData.sort(sortByTime).forEach(r => { tOk.innerHTML += `<tr class="border-b border-line/50"><td class="px-5 py-3 font-medium">${r.nombre}</td><td class="px-5 py-3"><span class="bg-line/50 text-[11px] px-2 py-1">${r.team}</span></td><td class="px-5 py-3 text-right font-bold text-ok-700">${r.hora}</td></tr>`; });
 
-        const tLate = document.getElementById('listLate');
-        tLate.innerHTML = '';
-        if(lateData.length === 0) tLate.innerHTML = '<tr><td colspan="4" class="px-5 py-10 text-ink-500 text-center">Nadie marcó tarde este día.</td></tr>';
-        lateData.sort(sortByTime).forEach(r => {
-            tLate.innerHTML += `
-            <tr class="hover:bg-bad-100/50 transition">
-                <td class="px-5 py-3 border-b border-line/50 font-medium">${r.nombre}</td>
-                <td class="px-5 py-3 border-b border-line/50"><span class="bg-line/50 text-ink-700 px-2 py-1 rounded text-[11px] font-mono border border-line">${r.team}</span></td>
-                <td class="px-5 py-3 border-b border-line/50 text-ink-500 font-mono text-[11px]">${r.rol}</td>
-                <td class="px-5 py-3 border-b border-line/50 text-right font-bold text-bad-700 text-[14px]">${r.hora}</td>
-            </tr>`;
-        });
+        const tLate = document.getElementById('listLate'); tLate.innerHTML = '';
+        lateData.sort(sortByTime).forEach(r => { tLate.innerHTML += `<tr class="border-b border-line/50"><td class="px-5 py-3 font-medium">${r.nombre}</td><td class="px-5 py-3"><span class="bg-line/50 text-[11px] px-2 py-1">${r.team}</span></td><td class="px-5 py-3 text-right font-bold text-bad-700">${r.hora}</td></tr>`; });
     }
 
-    function renderCharts(ok, late) {
-        if(myChart) myChart.destroy();
-        if(myBarChart) myBarChart.destroy();
+    function renderChartsBase(ok, late) {
+        if(myChart) myChart.destroy(); if(myBarChart) myBarChart.destroy();
         const ctxPie = document.getElementById('chartAsistencia').getContext('2d');
         const ctxBar = document.getElementById('chartBarrasAsistencia').getContext('2d');
-        
         if (ok === 0 && late === 0) {
             myChart = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['Sin datos'], datasets: [{ data: [1], backgroundColor: ['#E3E7ED'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '75%', animation: false } });
             myBarChart = new Chart(ctxBar, { type: 'bar', data: { labels: ['A Tiempo', 'Tarde'], datasets: [{ data: [0, 0], backgroundColor: ['#E3E7ED', '#E3E7ED'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false } } } });
@@ -425,6 +583,35 @@
     }
 
     window.onload = () => { loadDataFromAPI(); };
+</script>
+<script>
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'F12' || e.keyCode === 123) {
+            e.preventDefault();
+            return false;
+        }
+        if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73)) {
+            e.preventDefault();
+            return false;
+        }
+        if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74)) {
+            e.preventDefault();
+            return false;
+        }
+        if (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)) {
+            e.preventDefault();
+            return false;
+        }
+    });
+    document.addEventListener('selectstart', function(e) {
+        e.preventDefault();
+    });
+    document.addEventListener('dragstart', function(e) {
+        e.preventDefault();
+    });
 </script>
 </body>
 </html>
