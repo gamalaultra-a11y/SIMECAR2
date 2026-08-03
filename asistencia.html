@@ -3,13 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Control de Asistencia Diario y Ejecutivo</title>
+<title>Control de Asistencia Multimes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-<!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
-<!-- Chart.js para Gráficos -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -66,16 +64,15 @@
             </div>
         </div>
         <div class="flex gap-4">
-            <a href="dashboard_rrhh.html" class="text-[12px] font-semibold text-white/80 hover:text-white transition flex items-center gap-1">
-                ← Volver a Data Maestra
-            </a>
-        </div>
+    <button onclick="window.location.href='dashboard_rrhh.html'" class="bg-gray-700 hover:bg-gray-600 text-white/90 hover:text-white px-4 py-2 rounded text-[12px] font-semibold transition flex items-center gap-2">
+        Volver a Data Maestra
+    </button>
+</div>
     </div>
 </nav>
 
 <main class="max-w-[1400px] mx-auto px-6 py-8 flex-grow w-full" id="area-impresion">
 
-    <!-- CONTROLES (Se ignoran en el PDF) -->
     <div class="mb-6 flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-4 rounded-xl border border-line shadow-sm" data-html2canvas-ignore="true">
         <div class="flex gap-6 border-b border-line w-full md:w-auto overflow-x-auto">
             <button id="tab-operativos" onclick="setGrupo('OPERATIVOS')" class="pb-3 px-2 tab-active text-[14px] transition whitespace-nowrap">Técnicos & Team Leaders</button>
@@ -91,9 +88,12 @@
             <button onclick="exportToExcel()" class="border border-line px-3 py-2 rounded-lg text-ok-700 hover:bg-ok-100 transition flex items-center gap-1 font-bold text-[12px]" title="Exportar tablas a Excel">
                 EXCEL
             </button>
-            <button onclick="loadDataFromAPI()" class="border border-line px-3 py-2 rounded-lg text-ink-700 hover:bg-canvas transition ml-2" title="Actualizar datos">
+            <button onclick="actualizarDatosYMeses()" class="border border-line px-3 py-2 rounded-lg text-ink-700 hover:bg-canvas transition ml-2" title="Actualizar datos">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>
             </button>
+            <select id="selectMes" onchange="cambiarMes()" class="border border-line rounded-lg px-3 py-2 text-[12px] focus:outline-none focus:border-navy-900 bg-white font-bold shadow-sm text-navy-900" title="Seleccionar mes">
+                <option value="">Cargando meses...</option>
+            </select>
             <select id="selectDia" onchange="renderDashboard()" class="border border-line rounded-lg px-3 py-2 text-[12px] focus:outline-none focus:border-navy-900 bg-white font-medium shadow-sm">
                 <option value="">Cargando días...</option>
             </select>
@@ -105,13 +105,11 @@
         </div>
     </div>
 
-    <!-- TÍTULO PARA EL PDF -->
     <div id="pdf-header" class="hidden text-center mb-6 avoid-break-pdf">
         <h1 class="text-2xl font-bold text-navy-900">REPORTE DE ASISTENCIA</h1>
         <p class="text-ink-500 font-medium mt-1" id="pdf-subtitle"></p>
     </div>
 
-    <!-- 🌟 VISTA DASHBOARD NORMAL (DIARIA) 🌟 -->
     <div id="vista-dashboard" class="block">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 avoid-break-pdf print-stack">
             <div class="grid grid-cols-2 gap-4 h-full">
@@ -142,7 +140,6 @@
             </div>
         </div>
         
-        <!-- SALTO DE HOJA (PDF) -->
         <div class="html2pdf__page-break"></div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-stack">
@@ -178,7 +175,6 @@
         </div>
     </div>
 
-    <!-- VISTA AUDITORÍA -->
     <div id="vista-auditoria" class="hidden">
         <div class="bg-white rounded-xl border border-line shadow-sm flex flex-col avoid-break-pdf">
             <div class="bg-navy-950 px-5 py-4 flex justify-between items-center shrink-0">
@@ -196,7 +192,6 @@
         </div>
     </div>
 
-    <!-- 🌟 VISTA EJECUTIVA (REPORTE MENSUAL) 🌟 -->
     <div id="vista-ejecutivo" class="hidden">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 avoid-break-pdf print-stack">
             <div class="bg-white rounded border border-line p-5 shadow-sm">
@@ -276,11 +271,38 @@
 </main>
 
 <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxYQ1Kyf2uYQjHGHc-e22vYSomGzMpvJ3gh-okEyxxa2g127gVPMBUmrR5W46tPFwA-/exec?modo=asistencia'; 
-    
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzRC6lXZLvAF6SCVwuK4Vaz5_jAArbjxSMHarJz9065oNewWZA8CYEatEVLbp6OR1vM/exec?modo=asistencia';
+
     let dataAsistencia = [];
-    let currentGrupo = 'OPERATIVOS'; 
+    let currentGrupo = 'OPERATIVOS';
     let myChart = null, myBarChart = null, trendChart = null, execPieChart = null;
+
+    const cacheDatosPorMes = new Map();
+    let mesesDisponibles = [];
+    let mesActual = '';
+    let solicitudMesActiva = 0;
+    let cargandoMes = false;
+
+    function crearEndpoint(modo, parametros = {}) {
+        const endpoint = new URL(API_URL);
+        endpoint.search = '';
+        endpoint.searchParams.set('modo', modo);
+        Object.entries(parametros).forEach(([clave, valor]) => {
+            if (valor !== undefined && valor !== null && String(valor) !== '') {
+                endpoint.searchParams.set(clave, String(valor));
+            }
+        });
+        return endpoint;
+    }
+
+    function obtenerEtiquetaMes(mes = mesActual) {
+        const item = mesesDisponibles.find(m => m.value === mes);
+        if (item) return item.label;
+        const nombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const [anio, numero] = String(mes || '').split('-');
+        const nombre = nombres[Number(numero) - 1];
+        return nombre && anio ? `${nombre} ${anio}` : String(mes || '');
+    }
 
     function parseHoraAMinutos(timeStr) {
         if (!timeStr || String(timeStr).trim() === '' || timeStr === 'F' || timeStr === 'QR' || timeStr === 'E') return null;
@@ -324,27 +346,191 @@
         renderDashboard();
     }
 
-    async function loadDataFromAPI() {
-        document.getElementById('listOk').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando...</td></tr>`;
-        document.getElementById('listLate').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Descargando...</td></tr>`;
-        
+    async function cargarMesesDisponibles(forzar = false) {
+        const selectMes = document.getElementById('selectMes');
+        const mesPrevio = selectMes.value || mesActual || localStorage.getItem('asistencia_mes_actual') || '';
+
+        if (!forzar && mesesDisponibles.length > 0) {
+            poblarSelectorMeses(mesPrevio);
+            return;
+        }
+
+        selectMes.disabled = true;
+        selectMes.innerHTML = '<option value="">Cargando meses...</option>';
+
+        const endpoint = crearEndpoint('meses', { _t: Date.now() });
+        const response = await fetch(endpoint.toString(), { cache: 'no-store', redirect: 'follow' });
+        const rawText = await response.text();
+
+        let resultado;
         try {
-            const response = await fetch(API_URL);
-            const rawText = await response.text();
-            if(rawText.includes("<!DOCTYPE html>")) { alert("Error: Google Apps Script bloqueado."); return; }
+            resultado = JSON.parse(rawText);
+        } catch (error) {
+            throw new Error('El Apps Script no devolvió la lista de meses correctamente.');
+        }
 
-            dataAsistencia = JSON.parse(rawText);
-            let diasUnicos = new Set();
-            dataAsistencia.forEach(d => { if (d.dia && d.dia.trim() !== "") diasUnicos.add(d.dia.trim()); });
-            
-            let diasOrdenados = Array.from(diasUnicos).sort((a,b) => parseInt(a) - parseInt(b));
-            const selectDia = document.getElementById('selectDia');
-            selectDia.innerHTML = ''; 
-            if (diasOrdenados.length === 0) selectDia.innerHTML = '<option value="">Sin datos</option>';
-            else diasOrdenados.forEach(dia => { selectDia.innerHTML += `<option value="${dia}">${dia}</option>`; });
+        if (!response.ok || resultado.error || !Array.isArray(resultado)) {
+            throw new Error(resultado.error || 'No se pudieron obtener los meses disponibles.');
+        }
 
+        mesesDisponibles = resultado;
+        poblarSelectorMeses(mesPrevio);
+        selectMes.disabled = false;
+    }
+
+    function poblarSelectorMeses(mesPreferido = '') {
+        const selectMes = document.getElementById('selectMes');
+        selectMes.innerHTML = '';
+
+        if (!mesesDisponibles.length) {
+            selectMes.innerHTML = '<option value="">Sin meses disponibles</option>';
+            mesActual = '';
+            return;
+        }
+
+        mesesDisponibles.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.value;
+            option.textContent = item.label;
+            selectMes.appendChild(option);
+        });
+
+        const existePreferido = mesesDisponibles.some(item => item.value === mesPreferido);
+        selectMes.value = existePreferido ? mesPreferido : mesesDisponibles[0].value;
+        mesActual = selectMes.value;
+    }
+
+    async function cambiarMes() {
+        const nuevoMes = document.getElementById('selectMes').value;
+        if (!nuevoMes || nuevoMes === mesActual && dataAsistencia.length) return;
+        mesActual = nuevoMes;
+        localStorage.setItem('asistencia_mes_actual', mesActual);
+        await loadDataFromAPI(false);
+    }
+
+    async function actualizarDatosYMeses() {
+        try {
+            await cargarMesesDisponibles(true);
+            mesActual = document.getElementById('selectMes').value;
+            if (mesActual) cacheDatosPorMes.delete(mesActual);
+            await loadDataFromAPI(true);
+        } catch (error) {
+            console.error(error);
+            alert(error.message || 'No se pudieron actualizar los datos.');
+        }
+    }
+
+    function bloquearExportaciones(bloquear) {
+        cargandoMes = bloquear;
+        document.querySelectorAll('button[onclick="exportToPDF()"], button[onclick="exportToExcel()"]')
+            .forEach(boton => {
+                boton.disabled = bloquear;
+                boton.classList.toggle('opacity-50', bloquear);
+                boton.classList.toggle('cursor-not-allowed', bloquear);
+            });
+    }
+
+    function mostrarCargaMes() {
+        document.getElementById('listOk').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Cargando ${obtenerEtiquetaMes()}...</td></tr>`;
+        document.getElementById('listLate').innerHTML = `<tr><td colspan="3" class="px-5 py-8 text-center text-ink-500 font-medium">Cargando ${obtenerEtiquetaMes()}...</td></tr>`;
+    }
+
+    function poblarDias(preservarDia = '') {
+        const diasUnicos = new Set();
+        dataAsistencia.forEach(d => {
+            if (d.dia && String(d.dia).trim() !== '') diasUnicos.add(String(d.dia).trim());
+        });
+
+        const diasOrdenados = Array.from(diasUnicos).sort((a, b) => {
+            const na = parseInt(a, 10), nb = parseInt(b, 10);
+            if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+            return a.localeCompare(b);
+        });
+
+        const selectDia = document.getElementById('selectDia');
+        selectDia.innerHTML = '';
+
+        if (!diasOrdenados.length) {
+            selectDia.innerHTML = '<option value="">Sin datos</option>';
+            return;
+        }
+
+        diasOrdenados.forEach(dia => {
+            const option = document.createElement('option');
+            option.value = dia;
+            option.textContent = dia;
+            selectDia.appendChild(option);
+        });
+
+        if (preservarDia && diasOrdenados.includes(preservarDia)) {
+            selectDia.value = preservarDia;
+        }
+    }
+
+    async function loadDataFromAPI(forzar = false) {
+        const selectMes = document.getElementById('selectMes');
+        mesActual = selectMes?.value || mesActual;
+        if (!mesActual) return;
+
+        const tokenSolicitud = ++solicitudMesActiva;
+        const diaPrevio = document.getElementById('selectDia')?.value || '';
+        mostrarCargaMes();
+        selectMes.disabled = true;
+        bloquearExportaciones(true);
+
+        try {
+            if (!forzar && cacheDatosPorMes.has(mesActual)) {
+                dataAsistencia = cacheDatosPorMes.get(mesActual);
+            } else {
+                const endpoint = crearEndpoint('asistencia', {
+                    mes: mesActual,
+                    _t: Date.now()
+                });
+
+                const response = await fetch(endpoint.toString(), {
+                    method: 'GET', cache: 'no-store', redirect: 'follow'
+                });
+                const rawText = await response.text();
+                if (rawText.includes('<!DOCTYPE html>')) {
+                    throw new Error('Google Apps Script está bloqueado o requiere una nueva implementación.');
+                }
+
+                const resultado = JSON.parse(rawText);
+                if (!response.ok || resultado.error || !Array.isArray(resultado)) {
+                    throw new Error(resultado.error || 'Respuesta de asistencia inválida.');
+                }
+
+                if (tokenSolicitud !== solicitudMesActiva) return;
+                dataAsistencia = resultado;
+                cacheDatosPorMes.set(mesActual, resultado);
+            }
+
+            localStorage.setItem('asistencia_mes_actual', mesActual);
+            poblarDias(diaPrevio);
             renderDashboard();
-        } catch (error) { alert("Error conectando con Google Sheets."); }
+        } catch (error) {
+            console.error('Error cargando el mes:', error);
+            alert(`No se pudo cargar ${obtenerEtiquetaMes()}.\n\n${error.message}`);
+        } finally {
+            if (tokenSolicitud === solicitudMesActiva) {
+                selectMes.disabled = false;
+                bloquearExportaciones(false);
+            }
+        }
+    }
+
+    async function iniciarSistema() {
+        try {
+            await cargarMesesDisponibles();
+            mesActual = document.getElementById('selectMes').value;
+            await loadDataFromAPI(false);
+        } catch (error) {
+            console.error(error);
+            alert(
+                'No se pudo iniciar el sistema multimes.\n\n' + error.message +
+                '\n\nVerifica que las pestañas se llamen ASISTENCIA-AAAA-MM y que hayas publicado la nueva versión del Apps Script.'
+            );
+        }
     }
 
     function renderDashboard() {
@@ -481,14 +667,9 @@
         lateData.sort(sortByTime).forEach(r => { tLate.innerHTML += `<tr class="border-b border-line/50"><td class="px-5 py-3 font-medium">${r.nombre}</td><td class="px-5 py-3"><span class="bg-line/50 text-[11px] px-2 py-1">${r.team}</span></td><td class="px-5 py-3 text-right font-bold text-bad-700">${r.hora}</td></tr>`; });
     }
 
-    // 🌟 MAGIA DEL PDF ESTRICTO 🌟
-    // ============================================================
-    // EXPORTACIÓN PDF PROFESIONAL PARA AUDITORÍA
-    // Se dibuja directamente con jsPDF + AutoTable.
-    // No se convierte el dashboard completo en una captura gigante.
-    // ============================================================
 
     function exportToPDF() {
+        if (cargandoMes) { alert('Espera a que termine de cargar el mes seleccionado.'); return; }
         if (!window.jspdf || !window.jspdf.jsPDF) {
             alert("No se pudo cargar el motor PDF. Verifica tu conexión a Internet.");
             return;
@@ -503,12 +684,14 @@
         });
 
         const grupo = currentGrupo;
-        const dia = document.getElementById("selectDia")?.value || "Mensual";
+        const dia = grupo === "EJECUTIVO" ? "Mensual" : (document.getElementById("selectDia")?.value || "Mensual");
         const tipo = document.getElementById("selectTipo")?.value || "ODOO";
+        const mes = mesActual || document.getElementById("selectMes")?.value || "SinMes";
+        const etiquetaMes = obtenerEtiquetaMes(mes);
 
         doc.setProperties({
             title: `Reporte de Asistencia - ${grupo}`,
-            subject: `Reporte de asistencia - ${dia}`,
+            subject: `Reporte de asistencia - ${etiquetaMes} - ${dia}`,
             author: "Control de Asistencia",
             creator: "Control de Asistencia"
         });
@@ -523,7 +706,7 @@
 
         agregarNumeracionPDF(doc);
 
-        const nombre = `Reporte_Asistencia_${grupo}_${dia === "Mensual" ? "Mensual" : "Dia_" + dia}.pdf`;
+        const nombre = `Reporte_Asistencia_${grupo}_${mes}_${dia === "Mensual" ? "Mensual" : "Dia_" + dia}.pdf`;
         doc.save(nombre);
     }
 
@@ -604,9 +787,6 @@
         }
     }
 
-    // ------------------------------------------------------------
-    // DIARIO: OPERATIVOS / ADMIN
-    // ------------------------------------------------------------
     function crearPDFDiario(doc, grupo, dia, tipo) {
         const c = cPDF();
 
@@ -659,7 +839,7 @@
         encabezadoPDF(
             doc,
             "Reporte diario",
-            `Grupo: ${grupo} | Día: ${dia} | Fuente: ${tipo}`
+            `Grupo: ${grupo} | Mes: ${obtenerEtiquetaMes()} | Día: ${dia} | Fuente: ${tipo}`
         );
 
         const gap = 5;
@@ -676,12 +856,11 @@
         barraPDF(doc, 150, 62, 135, "COMPARATIVA", c.navy);
         insertarCanvas(doc, "chartBarrasAsistencia", 158, 72, 120, 70);
 
-        // Página 2
         doc.addPage();
         encabezadoPDF(
             doc,
             "Detalle de asistencia",
-            `Grupo: ${grupo} | Día: ${dia} | Fuente: ${tipo}`
+            `Grupo: ${grupo} | Mes: ${obtenerEtiquetaMes()} | Día: ${dia} | Fuente: ${tipo}`
         );
 
         doc.autoTable({
@@ -737,9 +916,6 @@
         });
     }
 
-    // ------------------------------------------------------------
-    // AUDITORÍA
-    // ------------------------------------------------------------
     function crearPDFAuditoria(doc, dia) {
         const c = cPDF();
         const audit = [];
@@ -783,7 +959,7 @@
         encabezadoPDF(
             doc,
             "Auditoría de asistencia",
-            `Discrepancias detectadas | Día: ${dia}`
+            `Discrepancias detectadas | Mes: ${obtenerEtiquetaMes()} | Día: ${dia}`
         );
 
         tarjetaPDF(doc, 12, 31, 65, 24, "ALERTAS DETECTADAS", audit.length, c.red);
@@ -832,9 +1008,6 @@
         }
     }
 
-    // ------------------------------------------------------------
-    // EJECUTIVO
-    // ------------------------------------------------------------
     function crearPDFEjecutivo(doc, tipo) {
         const c = cPDF();
 
@@ -901,7 +1074,7 @@
         encabezadoPDF(
             doc,
             "Reporte ejecutivo mensual",
-            `Grupo: EJECUTIVO | Periodo mensual | Fuente: ${tipo}`
+            `Grupo: EJECUTIVO | Mes: ${obtenerEtiquetaMes()} | Fuente: ${tipo}`
         );
 
         const gap = 5;
@@ -924,12 +1097,11 @@
             c.gray
         );
 
-        // Página 2
         doc.addPage();
         encabezadoPDF(
             doc,
             "Indicadores destacados",
-            `Top 10 tardanzas y proporción mensual | Fuente: ${tipo}`
+            `Top 10 tardanzas y proporción mensual | Mes: ${obtenerEtiquetaMes()} | Fuente: ${tipo}`
         );
 
         barraPDF(doc, 12, 31, 130, "TOP 10 TARDANZAS", c.red);
@@ -968,12 +1140,11 @@
         txtPDF(doc, "Tarde", 170, 143, 8, c.red, "bold");
         txtPDF(doc, `${tarde} marcaciones (${pTarde}%)`, 170, 149, 8, c.gray);
 
-        // Página 3 en adelante: tabla completa.
         doc.addPage();
         encabezadoPDF(
             doc,
             "Ficha individual de asistencia mensual",
-            `Detalle por trabajador | Fuente: ${tipo}`
+            `Detalle por trabajador | Mes: ${obtenerEtiquetaMes()} | Fuente: ${tipo}`
         );
 
         const general = [...arr].sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -1038,41 +1209,92 @@
         }
     }
 
-    function exportToExcel() {
-        let activeViewId = '';
-        if (currentGrupo === 'AUDITORIA') activeViewId = 'vista-auditoria';
-        else if (currentGrupo === 'EJECUTIVO') activeViewId = 'vista-ejecutivo';
-        else activeViewId = 'vista-dashboard';
-
-        let csv = [];
-        let filas = document.querySelectorAll(`#${activeViewId} table tr`);
-        if(filas.length === 0) { alert("No hay datos en la tabla para exportar."); return; }
-
-        for (let i = 0; i < filas.length; i++) {
-            let fila = [], columnas = filas[i].querySelectorAll('td, th');
-            for (let j = 0; j < columnas.length; j++) {
-                let texto = columnas[j].innerText.replace(/"/g, '""').replace(/(\r\n|\n|\r)/gm, "");
-                fila.push('"' + texto + '"');
-            }
-            csv.push(fila.join(';'));
+    async function exportToExcel() {
+        if (cargandoMes) { alert('Espera a que termine de cargar el mes seleccionado.'); return; }
+        if (!Array.isArray(dataAsistencia) || dataAsistencia.length === 0) {
+            alert('No hay datos de asistencia para exportar.');
+            return;
         }
 
-        let csvString = csv.join('\n');
-        let blob = new Blob(["\uFEFF" + csvString], { type: 'text/csv;charset=utf-8;' });
-        let url = URL.createObjectURL(blob);
-        let a = document.createElement("a");
-        a.href = url;
-        let filtroNombre = currentGrupo === 'EJECUTIVO' ? 'Mensual' : (document.getElementById('selectDia').value || 'Mensual');
-        a.download = `Asistencia_${currentGrupo}_${filtroNombre}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        const boton = document.querySelector('button[onclick="exportToExcel()"]');
+        const textoOriginal = boton ? boton.innerHTML : '';
+
+        if (boton) {
+            boton.disabled = true;
+            boton.innerHTML = 'GENERANDO';
+        }
+
+        try {
+            const grupo = currentGrupo || 'EJECUTIVO';
+            const tipo = document.getElementById('selectTipo')?.value || 'ODOO';
+            const dia = grupo === 'EJECUTIVO'
+                ? 'Mensual'
+                : (document.getElementById('selectDia')?.value || 'Mensual');
+
+            const endpoint = new URL(API_URL);
+            endpoint.search = '';
+            endpoint.searchParams.set('modo', 'excel');
+            endpoint.searchParams.set('grupo', grupo);
+            endpoint.searchParams.set('dia', dia);
+            endpoint.searchParams.set('tipo', tipo);
+            endpoint.searchParams.set('mes', mesActual);
+            endpoint.searchParams.set('_t', Date.now().toString());
+
+            const response = await fetch(endpoint.toString(), {
+                method: 'GET',
+                cache: 'no-store',
+                redirect: 'follow'
+            });
+
+            const rawText = await response.text();
+            let resultado;
+
+            try {
+                resultado = JSON.parse(rawText);
+            } catch (parseError) {
+                throw new Error('El Apps Script no devolvió un JSON válido. Vuelve a implementar la aplicación web.');
+            }
+
+            if (!response.ok || resultado.error || !resultado.base64) {
+                throw new Error(resultado.error || 'No se pudo generar el archivo Excel.');
+            }
+
+            const binary = atob(resultado.base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+
+            const blob = new Blob([bytes], {
+                type: resultado.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+
+            const url = URL.createObjectURL(blob);
+            const enlace = document.createElement('a');
+            enlace.href = url;
+            enlace.download = resultado.filename || `Reporte_Asistencia_${grupo}.xlsx`;
+            document.body.appendChild(enlace);
+            enlace.click();
+            enlace.remove();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error generando Excel V4:', error);
+            alert(
+                'No se pudo generar el Excel con gráficos nativos.\n\n' +
+                error.message +
+                '\n\nVerifica que hayas reemplazado el Apps Script y creado una nueva versión de la implementación.'
+            );
+        } finally {
+            if (boton) {
+                boton.disabled = false;
+                boton.innerHTML = textoOriginal;
+            }
+        }
     }
 
-    window.onload = () => { loadDataFromAPI(); };
+    window.onload = () => { iniciarSistema(); };
 </script>
 
-<!-- Script Anti-Inspección -->
 <script>
     document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
     document.addEventListener('keydown', function(e) {
